@@ -15,6 +15,7 @@ from preprocessing.lobster import LOBSTERDataBuilder
 from preprocessing.btc import BTCDataBuilder
 from preprocessing.combined import CombinedDataBuilder
 from constants import DatasetType
+from constants import SamplingType
 
 @hydra.main(config_path="config", config_name="config")
 def hydra_app(config: Config):
@@ -77,7 +78,7 @@ def hydra_app(config: Config):
             data_dir=cst.DATA_DIR,
             date_trading_days=config.dataset.dates,
             split_rates=cst.SPLIT_RATES,
-            sampling_type=config.dataset.sampling_type,
+            sampling_type = config.dataset.sampling_type if hasattr(config.dataset, 'sampling_type') else SamplingType.NONE
             sampling_time=config.dataset.sampling_time,
             sampling_quantity=config.dataset.sampling_quantity,
         )
