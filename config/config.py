@@ -75,8 +75,10 @@ class COMBINED(Dataset):
     dates: list = field(default_factory=lambda: ["2025-05-12", "2025-05-19"])
     batch_size: int = 64
     sampling_type: SamplingType = SamplingType.NONE  # Added default
-    training_stocks=config.dataset.training_stocks if hasattr(config.dataset, 'training_stocks') else ["COMBINED"],
-    testing_stocks=config.dataset.testing_stocks if hasattr(config.dataset, 'testing_stocks') else ["COMBINED"],
+    sampling_time: str = "1s"  # Placeholder, adjust if needed
+    sampling_quantity: int = 0  # No sampling quantity required
+    training_stocks: list = field(default_factory=lambda: ["COMBINED"])  # Default value
+    testing_stocks: list = field(default_factory=lambda: ["COMBINED"])   # Default value
 
 @dataclass
 class Experiment:
