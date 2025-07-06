@@ -79,8 +79,8 @@ def hydra_app(config: Config):
             date_trading_days=config.dataset.dates,
             split_rates=cst.SPLIT_RATES,
             sampling_type = config.dataset.sampling_type if hasattr(config.dataset, 'sampling_type') else SamplingType.NONE,
-            sampling_time=config.dataset.sampling_time,
-            sampling_quantity=config.dataset.sampling_quantity,
+            sampling_time=config.dataset.sampling_time if hasattr(config.dataset, 'sampling_time') else "1s",  # Default from LOBSTER
+            sampling_quantity=config.dataset.sampling_quantity if hasattr(config.dataset, 'sampling_quantity') else 0,  # Default from BTC
         )
         data_builder.prepare_save_datasets()
 
