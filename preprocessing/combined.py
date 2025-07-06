@@ -13,7 +13,7 @@ class CombinedDataBuilder:
         self.sampling_type = sampling_type
         self.sampling_time = sampling_time
         self.sampling_quantity = sampling_quantity
-        self.data_path = os.path.join(data_dir, "COMBINED", "combined_output_20.csv")
+        self.data_path = os.path.join(data_dir, "COMBINED", "combined_output_week_20.csv")
 
     def prepare_save_datasets(self):
         # Load and preprocess the dataset
