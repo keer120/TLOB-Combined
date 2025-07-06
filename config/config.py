@@ -72,8 +72,9 @@ class BTC(Dataset):
 @dataclass
 class COMBINED(Dataset):
     type: DatasetType = DatasetType.COMBINED
-    dates: list = field(default_factory=lambda: ["2025-05-12"])
+    dates: list = field(default_factory=lambda: ["2025-05-12", "2025-05-19"])
     batch_size: int = 64
+    sampling_type: SamplingType = SamplingType.NONE  # Added default
 
 @dataclass
 class Experiment:
