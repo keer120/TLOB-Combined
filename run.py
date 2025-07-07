@@ -18,7 +18,10 @@ from preprocessing.dataset import Dataset, DataModule
 import constants as cst
 from constants import DatasetType, SamplingType
 from sklearn.metrics import confusion_matrix
-torch.serialization.add_safe_globals([omegaconf.listconfig.ListConfig, omegaconf.base.ContainerMetadata])
+from typing import List
+
+# Add safe globals to allow deserialization of checkpoint
+torch.serialization.add_safe_globals([omegaconf.listconfig.ListConfig, omegaconf.base.ContainerMetadata, List])
 
 def run(config: Config, accelerator):
     seq_size = config.model.hyperparameters_fixed["seq_size"]
