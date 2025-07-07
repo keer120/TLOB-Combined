@@ -46,15 +46,20 @@ class Engine(L.LightningModule):
         self.len_test_dataloader = len_test_dataloader
 
     def forward(self, x, batch_idx=None):
-        # Handle potential 4D input (e.g., (batch_size, 1, seq_length, num_features))
+        # Ensure input is 3D: (batch_size, seq_length, num_features)
         if x.dim() == 4 and x.size(1) == 1:
-            x = x.squeeze(1)  # Remove the singleton dimension
+            x = x.squeeze(1)
+        elif x.dim() == 4:
+            # If batch_size, channels, seq_length, num_features, merge channels
+            x = x.view(x.size(0), -1, x.size(3))
+        if x.dim() != 3:
+            raise ValueError(f"Input to Engine.forward must be 3D, got shape {x.shape}")
         batch_size, seq_length, num_features = x.size()
         x = self.linear_projection(x)  # Project to (batch_size, seq_length, hidden_dim)
         output = self.model(x)  # Pass through TLOB model
         output = self.fc(output[:, -1, :])  # Take last time step and classify
         return output
-
+    
     def training_step(self, batch, batch_idx):
         x, y = batch
         y_hat = self(x, batch_idx)
