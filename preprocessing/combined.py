@@ -88,6 +88,10 @@ class CombinedDataBuilder:
 
 def combined_load(path, len_smooth, horizon, seq_size):
     data = np.load(path)
+    max_seq_length = data.shape[0] - horizon + 1  # Maximum possible sequence length
+    if seq_size > max_seq_length:
+        print(f"Warning: Requested seq_size ({seq_size}) exceeds maximum available length ({max_seq_length}). Truncating seq_size to {max_seq_length}.")
+        seq_size = max_seq_length
     labels = np.zeros(len(data) - seq_size - horizon + 1, dtype=np.int64)
     
     # Generate labels based on mid-price trend
@@ -103,6 +107,6 @@ def combined_load(path, len_smooth, horizon, seq_size):
     
     inputs = np.zeros((len(data) - seq_size - horizon + 1, seq_size, data.shape[1]), dtype=np.float32)
     for i in range(len(inputs)):
-        inputs[i] = data[i:i+seq_size]
+        inputs[i] = data[i:i+seq_size]  # Slice data to match seq_size, will truncate if data is shorter
     
     return torch.tensor(inputs), torch.tensor(labels)
