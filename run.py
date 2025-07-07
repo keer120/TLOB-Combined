@@ -441,7 +441,11 @@ def train(config: Config, trainer: L.Trainer, run=None):
             elif run is not None and dataset_type == "FI_2010":
                 run.log({f"f1 FI_2010 ": output[0]["f1_score"]}, commit=False)
             elif run is not None and dataset_type == "COMBINED":
-                run.log({f"f1 COMBINED best": output[0]["f1_score"]}, commit=False)
+                print("Test output:", output)
+                if output and "f1_score" in output[0]:
+                    run.log({f"f1 COMBINED best": output[0]["f1_score"]}, commit=False)
+                else:
+                    print("Warning: 'f1_score' not found in test output:", output)
 
             if dataset_type == "COMBINED" and run is not None:
                 model.eval()
