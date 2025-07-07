@@ -550,7 +550,7 @@ def run_wandb(config: Config, accelerator):
             run.finish()
             return
 
-        return wandb_sweep_callback
+        wandb_sweep_callback
 
 def sweep_init(config: Config):
     wandb.login("")
