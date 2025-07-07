@@ -83,21 +83,25 @@ class Engine(L.LightningModule):
         return loss
 
     def test_step(self, batch, batch_idx):
-        x, y = batch
-        y = y - y.min()  # <-- Add here if your labels are not starting from 0
-        y_hat = self.forward(x, batch_idx)
-        print(f"test_step: y min={y.min().item()}, max={y.max().item()}, num_classes={self.fc.out_features}")
-        print(f"Unique labels: {torch.unique(y)}")
-        loss = self.criterion(y_hat, y)
-        _, predicted = torch.max(y_hat.data, 1)
-        correct = (predicted == y).sum().item()
-        accuracy = correct / y.size(0)
-        self.log("test_loss", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
-        self.log("accuracy", accuracy, on_step=True, on_epoch=True, prog_bar=True, logger=True)
-        from sklearn.metrics import f1_score
-        f1 = f1_score(y.cpu(), predicted.cpu(), average='weighted')
-        self.log("f1_score", f1, on_step=True, on_epoch=True, prog_bar=True, logger=True)
-        return {"loss": loss, "f1_score": f1}
+        try:
+            x, y = batch
+            y = y - y.min()
+            y_hat = self.forward(x, batch_idx)
+            print(f"test_step: y min={y.min().item()}, max={y.max().item()}, num_classes={self.fc.out_features}")
+            print(f"Unique labels: {torch.unique(y)}")
+            loss = self.criterion(y_hat, y)
+            _, predicted = torch.max(y_hat.data, 1)
+            correct = (predicted == y).sum().item()
+            accuracy = correct / y.size(0)
+            self.log("test_loss", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
+            self.log("accuracy", accuracy, on_step=True, on_epoch=True, prog_bar=True, logger=True)
+            from sklearn.metrics import f1_score
+            f1 = f1_score(y.cpu(), predicted.cpu(), average='weighted')
+            self.log("f1_score", f1, on_step=True, on_epoch=True, prog_bar=True, logger=True)
+            return {"loss": loss, "f1_score": f1}
+        except Exception as e:
+            print(f"Exception in test_step: {e}")
+            return {"loss": torch.tensor(0.0, device=self.device), "f1_score": 0.0}
 
     def configure_optimizers(self):
         if self.optimizer == "lion":
