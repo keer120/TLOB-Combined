@@ -558,7 +558,7 @@ def run_wandb(config: Config, accelerator):
             print("WandB run finished.")
             return
 
-    wandb_sweep_callback()  # Make sure this is called!
+    wandb_sweep_callback()  #Make sure this is called!
 
 def sweep_init(config: Config):
     wandb.login("")
