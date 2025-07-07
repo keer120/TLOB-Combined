@@ -355,7 +355,8 @@ def train(config: Config, trainer: L.Trainer, run=None):
                 dataset_type=dataset_type,
                 num_classes=num_classes,
                 len_test_dataloader=len(test_loaders[0])
-        )
+            )
+            model = model.to(cst.DEVICE)
         elif model_type == cst.ModelType.TLOB:
             model = Engine(
                 seq_size=seq_size,
@@ -376,6 +377,7 @@ def train(config: Config, trainer: L.Trainer, run=None):
                 num_classes=num_classes,
                 len_test_dataloader=len(test_loaders[0])
             )
+            model = model.to(cst.DEVICE)
         elif model_type == cst.ModelType.BINCTABL:
             model = Engine(
                 seq_size=seq_size,
@@ -392,6 +394,7 @@ def train(config: Config, trainer: L.Trainer, run=None):
                 num_classes=num_classes,
                 len_test_dataloader=len(test_loaders[0])
             )
+            model = model.to(cst.DEVICE)
         elif model_type == cst.ModelType.DEEPLOB:
             model = Engine(
                 seq_size=seq_size,
@@ -408,6 +411,7 @@ def train(config: Config, trainer: L.Trainer, run=None):
                 num_classes=num_classes,
                 len_test_dataloader=len(test_loaders[0])
             )
+            model = model.to(cst.DEVICE)
     print("Model initialized/loaded.")    
     print("total number of parameters: ", sum(p.numel() for p in model.parameters()))   
     train_dataloader, val_dataloader = data_module.train_dataloader(), data_module.val_dataloader()
@@ -458,6 +462,9 @@ def train(config: Config, trainer: L.Trainer, run=None):
                         inputs, labels = batch
                         inputs, labels = inputs.to(cst.DEVICE), labels.to(cst.DEVICE)
                         outputs = model(inputs)
+                        print("inputs device:", inputs.device)
+                        print("labels device:", labels.device)
+                        print("outputs device:", outputs.device)
                         _, predicted = torch.max(outputs.data, 1)
                         all_preds.extend(predicted.cpu().numpy())
                         all_labels.extend(labels.cpu().numpy())
