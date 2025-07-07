@@ -21,7 +21,7 @@ from sklearn.metrics import confusion_matrix
 from typing import List
 
 # Add safe globals to allow deserialization of checkpoint
-torch.serialization.add_safe_globals([omegaconf.listconfig.ListConfig, omegaconf.base.ContainerMetadata, list])
+torch.serialization.add_safe_globals([omegaconf.listconfig.ListConfig, omegaconf.base.ContainerMetadata, List, list])
 
 def run(config: Config, accelerator):
     seq_size = config.model.hyperparameters_fixed["seq_size"]
@@ -210,8 +210,13 @@ def train(config: Config, trainer: L.Trainer, run=None):
             print(f"Attempting to load checkpoint from: {checkpoint_path}")
             if not os.path.exists(checkpoint_path):
                 raise FileNotFoundError(f"Checkpoint not found at {checkpoint_path}")
-            checkpoint = torch.load(checkpoint_path, map_location=cst.DEVICE, weights_only=True)
-            print(f"Checkpoint loaded successfully with {len(checkpoint)} keys")  # Debug print
+            checkpoint_path = os.path.join(cst.DIR_SAVED_MODEL, checkpoint_ref_clean)
+            print(f"Attempting to load checkpoint from: {checkpoint_path}")
+            if checkpoint_ref != "":
+                if not os.path.exists(checkpoint_path):
+                    raise FileNotFoundError(f"Checkpoint not found at {checkpoint_path}")
+                checkpoint = torch.load(checkpoint_path, map_location=cst.DEVICE, weights_only=True)
+                print(f"Checkpoint loaded successfully with {len(checkpoint)} keys")
             
         print("Loading model from checkpoint: ", config.experiment.checkpoint_reference) 
         lr = checkpoint["hyper_parameters"]["lr"]

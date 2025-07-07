@@ -18,8 +18,8 @@ class MLPLOB(Model):
 
 @dataclass
 class TLOB(Model):
-    hyperparameters_fixed: dict = field(default_factory=lambda: {"num_layers": 4, "hidden_dim": 40, "num_heads": 1, "is_sin_emb": True, "lr": 0.0001, "seq_size": 64, "all_features": True})  # Reduced seq_size to 64
-    hyperparameters_sweep: dict = field(default_factory=lambda: {"num_layers": [4, 6], "hidden_dim": [128, 256], "num_heads": [1], "is_sin_emb": [True], "lr": [0.0001], "seq_size": [64]})  # Updated sweep
+    hyperparameters_fixed: dict = field(default_factory=lambda: {"num_layers": 4, "hidden_dim": 40, "num_heads": 1, "is_sin_emb": True, "lr": 0.0001, "seq_size": 64, "all_features": True})
+    hyperparameters_sweep: dict = field(default_factory=lambda: {"num_layers": [4, 6], "hidden_dim": [128, 256], "num_heads": [1], "is_sin_emb": [True], "lr": [0.0001], "seq_size": [64]})
     type: ModelType = ModelType.TLOB
 
 @dataclass
