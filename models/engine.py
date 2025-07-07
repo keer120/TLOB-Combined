@@ -84,7 +84,10 @@ class Engine(L.LightningModule):
 
     def test_step(self, batch, batch_idx):
         x, y = batch
+        y = y - y.min()  # <-- Add here if your labels are not starting from 0
         y_hat = self.forward(x, batch_idx)
+        print(f"test_step: y min={y.min().item()}, max={y.max().item()}, num_classes={self.fc.out_features}")
+        print(f"Unique labels: {torch.unique(y)}")
         loss = self.criterion(y_hat, y)
         _, predicted = torch.max(y_hat.data, 1)
         correct = (predicted == y).sum().item()

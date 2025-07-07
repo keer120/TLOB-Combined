@@ -17,6 +17,9 @@ from preprocessing.combined import CombinedDataBuilder
 from constants import DatasetType
 from constants import SamplingType
 
+import os
+os.environ["CUDA_LAUNCH_BLOCKING"] = "1"
+
 @hydra.main(config_path="config", config_name="config")
 def hydra_app(config: Config):
     print("Starting hydra_app...")
