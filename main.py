@@ -117,8 +117,7 @@ def hydra_app(config: Config):
             wandb.agent(sweep_id, run_wandb(config, accelerator), count=sweep_config["run_cap"])
         else:
             print("Calling run_wandb...")
-            start_wandb = run_wandb(config, accelerator)
-            start_wandb()
+            run_wandb(config, accelerator)
     else:
         print("Running without WandB...")
         run(config, accelerator)
