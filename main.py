@@ -21,10 +21,12 @@ from constants import SamplingType
 def hydra_app(config: Config):
     set_reproducibility(config.experiment.seed)
     print("Using device: ", cst.DEVICE)
+    print("Starting configuration setup...")  # New debug print
     if cst.DEVICE == "cpu":
         accelerator = "cpu"
     else:
         accelerator = "gpu"
+    print("Device configured, setting model hyperparameters...")  # New debug print
     if config.dataset.type == DatasetType.FI_2010:
         if config.model.type.value == "MLPLOB" or config.model.type.value == "TLOB":
             config.model.hyperparameters_fixed["hidden_dim"] = 144
@@ -74,6 +76,7 @@ def hydra_app(config: Config):
         data_builder.prepare_save_datasets()
     
     elif config.dataset.type == cst.DatasetType.COMBINED and not config.experiment.is_data_preprocessed:
+        print("Preparing COMBINED dataset...")  # New debug print
         data_builder = CombinedDataBuilder(
             data_dir=cst.DATA_DIR,
             date_trading_days=config.dataset.dates,
@@ -83,14 +86,17 @@ def hydra_app(config: Config):
             sampling_quantity=config.dataset.sampling_quantity if hasattr(config.dataset, 'sampling_quantity') else 0,  # Default from BTC
         )
         data_builder.prepare_save_datasets()
+        print("Dataset preparation complete, starting WandB...")  # New debug print
 
     if config.experiment.is_wandb:
+        print("Initializing WandB run...")  # New debug print
         if config.experiment.is_sweep:
             sweep_config = sweep_init(config)
             sweep_id = wandb.sweep(sweep_config, project=cst.PROJECT_NAME, entity="")
             wandb.agent(sweep_id, run_wandb(config, accelerator), count=sweep_config["run_cap"])
         else:
             start_wandb = run_wandb(config, accelerator)
+            print("Calling run_wandb...")  # New debug print
             start_wandb()
     else:
         run(config, accelerator)

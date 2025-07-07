@@ -46,6 +46,7 @@ def run(config: Config, accelerator):
     train(config, trainer)
 
 def train(config: Config, trainer: L.Trainer, run=None):
+    print("Starting train function...")  # New debug print
     print_setup(config)
     dataset_type = config.dataset.type.value
     seq_size = config.model.hyperparameters_fixed["seq_size"]
@@ -124,7 +125,7 @@ def train(config: Config, trainer: L.Trainer, run=None):
         for i in range(len(testing_stocks)):
             path = cst.DATA_DIR + "/" + testing_stocks[i] + "/test.npy"
             test_input, test_labels = lobster_load(path, config.model.hyperparameters_fixed["all_features"], cst.LEN_SMOOTH, horizon, seq_size)
-            test_set = Dataset(test_input, test_labels, seq_size)
+            test_set = Dataset(test_input, test_labels, seq_size)  # Define test_set here
             test_dataloader = DataLoader(
                 dataset=test_set,
                 batch_size=config.dataset.batch_size*4,
@@ -141,7 +142,8 @@ def train(config: Config, trainer: L.Trainer, run=None):
         if config.experiment.is_debug:
             train_set.length = 1000
             val_set.length = 1000
-            test_set.length = 10000
+            for test_set in test_loaders:  # Apply to all test_sets
+                test_set.dataset.length = 10000
         data_module = DataModule(
             train_set=train_set,
             val_set=val_set,
@@ -381,6 +383,8 @@ def train(config: Config, trainer: L.Trainer, run=None):
                 model.eval()
                 all_preds = []
                 all_labels = []
+                total_loss = 0
+                total_samples = 0
                 with torch.no_grad():
                     for batch in test_dataloader:
                         inputs, labels = batch
@@ -389,10 +393,13 @@ def train(config: Config, trainer: L.Trainer, run=None):
                         _, predicted = torch.max(outputs.data, 1)
                         all_preds.extend(predicted.cpu().numpy())
                         all_labels.extend(labels.cpu().numpy())
+                        loss = torch.nn.functional.cross_entropy(outputs, labels)
+                        total_loss += loss.item() * inputs.size(0)
+                        total_samples += inputs.size(0)
 
                 # Compute additional metrics
                 accuracy = sum(1 for p, l in zip(all_preds, all_labels) if p == l) / len(all_labels)
-                loss = torch.nn.functional.cross_entropy(torch.tensor(outputs), torch.tensor(labels)).item()  # Approximate loss
+                loss = total_loss / total_samples if total_samples > 0 else 0.0
 
                 # Log metrics
                 run.log({
@@ -409,6 +416,7 @@ def train(config: Config, trainer: L.Trainer, run=None):
 
 def run_wandb(config: Config, accelerator):
     def wandb_sweep_callback():
+        print("Initializing WandB logger...")  # New debug print
         wandb_logger = WandbLogger(project=cst.PROJECT_NAME, log_model=False, save_dir=cst.DIR_SAVED_MODEL)
         run_name = None
         if not config.experiment.is_sweep:
@@ -423,18 +431,20 @@ def run_wandb(config: Config, accelerator):
                 else:
                     run_name += str(param[:2]) + "_" + str(value.value) + "_"
 
+        print("Starting WandB run initialization...")  # New debug print
         run = wandb.init(project=cst.PROJECT_NAME, name=run_name, entity="")
-        
+    
         if config.experiment.is_sweep:
             model_params = run.config
         else:
             model_params = config.model.hyperparameters_fixed
-        wandb_instance_name = ""
+        wandb_instance_name = f"{config.dataset.type.value}_{config.model.type.value}_horizon_{config.experiment.horizon}_seed_{config.experiment.seed}"  # Updated name
         for param in config.model.hyperparameters_fixed.keys():
             if param in model_params:
                 config.model.hyperparameters_fixed[param] = model_params[param]
-                wandb_instance_name += str(param) + "_" + str(model_params[param]) + "_"
+                wandb_instance_name += f"_{param}_{model_params[param]}"
 
+        print(f"Setting run name to {wandb_instance_name}...")  # New debug print
         run.name = wandb_instance_name
         seq_size = config.model.hyperparameters_fixed["seq_size"]
         horizon = config.experiment.horizon
@@ -445,8 +455,8 @@ def run_wandb(config: Config, accelerator):
             config.experiment.dir_ckpt = f"{dataset}_{training_stocks}_seq_size_{seq_size}_horizon_{horizon}_seed_{seed}"
         else:
             config.experiment.dir_ckpt = f"{dataset}_seq_size_{seq_size}_horizon_{horizon}_seed_{seed}"
-        wandb_instance_name = config.experiment.dir_ckpt
-            
+    
+        print("Configuring Trainer...")  # New debug print
         trainer = L.Trainer(
             accelerator=accelerator,
             precision=cst.PRECISION,
@@ -461,6 +471,7 @@ def run_wandb(config: Config, accelerator):
             check_val_every_n_epoch=1,
         )
 
+        print("Logging configuration to WandB...")  # New debug print
         run.log({"model": config.model.type.value}, commit=False)
         run.log({"dataset": config.dataset.type.value}, commit=False)
         run.log({"seed": config.experiment.seed}, commit=False)
@@ -475,10 +486,11 @@ def run_wandb(config: Config, accelerator):
                 run.log({"sampling_time": config.dataset.sampling_time}, commit=False)
             elif config.dataset.sampling_type == SamplingType.QUANTITY:
                 run.log({"sampling_quantity": config.dataset.sampling_quantity}, commit=False)
+        print("Calling train function...")  # New debug print
         train(config, trainer, run)
         run.finish()
 
-    return wandb_sweep_callback
+    return wandb_sweep_callback  # Corrected return statement
 
 def sweep_init(config: Config):
     wandb.login("")
