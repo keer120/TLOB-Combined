@@ -62,7 +62,7 @@ LEN_LEVEL = 4
 LEN_ORDER = 6
 LEN_SMOOTH = 10
 
-DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
+DEVICE = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 DIR_EXPERIMENTS = "data/experiments"
 DIR_SAVED_MODEL = "data/checkpoints"
 DATA_DIR = "data"
