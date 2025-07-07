@@ -187,9 +187,14 @@ def train(config: Config, trainer: L.Trainer, run=None):
     print("Train set shape: ", train_input.shape)
     print("Val set shape: ", val_input.shape)
     print("Test set shape: ", test_input.shape)
-    print(f"Classes distribution in train set: up {(counts_train[1][0].item()/train_labels.shape[0]):.2f} stat {(counts_train[1][1].item()/train_labels.shape[0]):.2f} down {(counts_train[1][2].item()/train_labels.shape[0]):.2f} ")
-    print(f"Classes distribution in val set: up {(counts_val[1][0].item()/val_labels.shape[0]):.2f} stat {(counts_val[1][1].item()/val_labels.shape[0]):.2f} down {(counts_val[1][2].item()/val_labels.shape[0]):.2f} ")
-    print(f"Classes distribution in test set: up {(counts_test[1][0].item()/test_labels.shape[0]):.2f} stat {(counts_test[1][1].item()/test_labels.shape[0]):.2f} down {(counts_test[1][2].item()/test_labels.shape[0]):.2f} ")
+    # Dynamically print class distributions
+    class_names = {0: "up", 1: "stat", 2: "down"}  # Define class names, adjust as needed
+    train_dist = {class_names[i] if i in class_names else f"class_{i}": count.item() / train_labels.shape[0] for i, count in enumerate(counts_train[1])}
+    val_dist = {class_names[i] if i in class_names else f"class_{i}": count.item() / val_labels.shape[0] for i, count in enumerate(counts_val[1])}
+    test_dist = {class_names[i] if i in class_names else f"class_{i}": count.item() / test_labels.shape[0] for i, count in enumerate(counts_test[1])}
+    print(f"Classes distribution in train set: {', '.join([f'{k}: {v:.2f}' for k, v in train_dist.items()])}")
+    print(f"Classes distribution in val set: {', '.join([f'{k}: {v:.2f}' for k, v in val_dist.items()])}")
+    print(f"Classes distribution in test set: {', '.join([f'{k}: {v:.2f}' for k, v in test_dist.items()])}")
     print()
     
     experiment_type = config.experiment.type
@@ -355,7 +360,7 @@ def train(config: Config, trainer: L.Trainer, run=None):
     if "TRAINING" in experiment_type or "FINETUNING" in experiment_type:
         trainer.fit(model, train_dataloader, val_dataloader)
         best_model_path = model.last_path_ckpt
-        print("Best model path: ", best_model_path) 
+        print(" Лучший путь к модели: ", best_model_path) 
         try:
             best_model = Engine.load_from_checkpoint(best_model_path, map_location=cst.DEVICE)
         except: 
