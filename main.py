@@ -19,14 +19,23 @@ from constants import SamplingType
 
 @hydra.main(config_path="config", config_name="config")
 def hydra_app(config: Config):
+    print("Starting hydra_app...")
     set_reproducibility(config.experiment.seed)
-    print("Using device: ", cst.DEVICE)
-    print("Starting configuration setup...")  # New debug print
+    print(f"Using device: {cst.DEVICE}")
+    print("Starting configuration setup...")
+    
+    # Check checkpoint existence for evaluation
+    if "EVALUATION" in config.experiment.type:
+        checkpoint_path = os.path.join(cst.DIR_SAVED_MODEL, config.experiment.checkpoint_reference.replace("data/checkpoints/", ""))
+        if not os.path.exists(checkpoint_path):
+            raise FileNotFoundError(f"Checkpoint not found at: {checkpoint_path}")
+
     if cst.DEVICE == "cpu":
         accelerator = "cpu"
     else:
         accelerator = "gpu"
-    print("Device configured, setting model hyperparameters...")  # New debug print
+    print("Device configured, setting model hyperparameters...")
+    
     if config.dataset.type == DatasetType.FI_2010:
         if config.model.type.value == "MLPLOB" or config.model.type.value == "TLOB":
             config.model.hyperparameters_fixed["hidden_dim"] = 144
@@ -38,9 +47,10 @@ def hydra_app(config: Config):
             config.model.hyperparameters_fixed["hidden_dim"] = 46
     elif config.dataset.type == DatasetType.COMBINED:
         if config.model.type.value == "MLPLOB" or config.model.type.value == "TLOB":
-            config.model.hyperparameters_fixed["hidden_dim"] = 40  # Adjust based on dataset features
+            config.model.hyperparameters_fixed["hidden_dim"] = 40
     
     if config.dataset.type.value == "LOBSTER" and not config.experiment.is_data_preprocessed:
+        print("Preparing LOBSTER dataset...")
         data_builder = LOBSTERDataBuilder(
             stocks=config.dataset.training_stocks,
             data_dir=cst.DATA_DIR,
@@ -51,8 +61,10 @@ def hydra_app(config: Config):
             sampling_quantity=config.dataset.sampling_quantity,
         )
         data_builder.prepare_save_datasets()
+        print("LOBSTER dataset preparation complete.")
         
     elif config.dataset.type.value == "FI_2010" and not config.experiment.is_data_preprocessed:
+        print("Preparing FI_2010 dataset...")
         try:
             dir = cst.DATA_DIR + "/FI_2010/"
             for filename in os.listdir(dir):
@@ -60,11 +72,12 @@ def hydra_app(config: Config):
                     filename = dir + filename
                     with zipfile.ZipFile(filename, 'r') as zip_ref:
                         zip_ref.extractall(dir)
-            print("Data extracted.")
+            print("FI_2010 data extracted.")
         except Exception as e:
-            raise(f"Error downloading or extracting data: {e}")
+            raise Exception(f"Error downloading or extracting FI_2010 data: {e}")
         
     elif config.dataset.type == cst.DatasetType.BTC and not config.experiment.is_data_preprocessed:
+        print("Preparing BTC dataset...")
         data_builder = BTCDataBuilder(
             data_dir=cst.DATA_DIR,
             date_trading_days=config.dataset.dates,
@@ -74,39 +87,48 @@ def hydra_app(config: Config):
             sampling_quantity=config.dataset.sampling_quantity,
         )
         data_builder.prepare_save_datasets()
+        print("BTC dataset preparation complete.")
     
     elif config.dataset.type == cst.DatasetType.COMBINED and not config.experiment.is_data_preprocessed:
-        print("Preparing COMBINED dataset...")  # New debug print
-        data_builder = CombinedDataBuilder(
-            data_dir=cst.DATA_DIR,
-            date_trading_days=config.dataset.dates,
-            split_rates=cst.SPLIT_RATES,
-            sampling_type = config.dataset.sampling_type if hasattr(config.dataset, 'sampling_type') else SamplingType.NONE,
-            sampling_time=config.dataset.sampling_time if hasattr(config.dataset, 'sampling_time') else "1s",  # Default from LOBSTER
-            sampling_quantity=config.dataset.sampling_quantity if hasattr(config.dataset, 'sampling_quantity') else 0,  # Default from BTC
-        )
-        data_builder.prepare_save_datasets()
-        print("Dataset preparation complete, starting WandB...")  # New debug print
-
+        print("Preparing COMBINED dataset...")
+        try:
+            data_builder = CombinedDataBuilder(
+                data_dir=cst.DATA_DIR,
+                date_trading_days=config.dataset.dates,
+                split_rates=cst.SPLIT_RATES,
+                sampling_type=config.dataset.sampling_type if hasattr(config.dataset, 'sampling_type') else SamplingType.NONE,
+                sampling_time=config.dataset.sampling_time if hasattr(config.dataset, 'sampling_time') else "1s",
+                sampling_quantity=config.dataset.sampling_quantity if hasattr(config.dataset, 'sampling_quantity') else 0,
+            )
+            data_builder.prepare_save_datasets()
+            print("COMBINED dataset preparation complete.")
+        except Exception as e:
+            raise Exception(f"Error preparing COMBINED dataset: {e}")
+    
+    print("Dataset preparation complete, starting WandB...")
     if config.experiment.is_wandb:
-        print("Initializing WandB run...")  # New debug print
+        print("Initializing WandB run...")
         if config.experiment.is_sweep:
+            print("Setting up WandB sweep...")
             sweep_config = sweep_init(config)
             sweep_id = wandb.sweep(sweep_config, project=cst.PROJECT_NAME, entity="")
             wandb.agent(sweep_id, run_wandb(config, accelerator), count=sweep_config["run_cap"])
         else:
+            print("Calling run_wandb...")
             start_wandb = run_wandb(config, accelerator)
-            print("Calling run_wandb...")  # New debug print
             start_wandb()
     else:
+        print("Running without WandB...")
         run(config, accelerator)
 
 def set_reproducibility(seed):
+    print(f"Setting random seed: {seed}")
     torch.manual_seed(seed)
     np.random.seed(seed)
     random.seed(seed)
 
 def set_torch():
+    print("Configuring PyTorch settings...")
     torch.set_default_dtype(torch.float32)
     torch.backends.cuda.matmul.allow_tf32 = True
     torch.backends.cudnn.allow_tf32 = True
@@ -114,5 +136,6 @@ def set_torch():
     torch.set_float32_matmul_precision('high')
 
 if __name__ == "__main__":
+    print("Starting main.py...")
     set_torch()
     hydra_app()
