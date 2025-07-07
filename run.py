@@ -21,9 +21,10 @@ from constants import DatasetType, SamplingType
 from sklearn.metrics import confusion_matrix
 from typing import List
 import traceback
+import collections
 
 # Add safe globals to allow deserialization of checkpoint
-torch.serialization.add_safe_globals([omegaconf.listconfig.ListConfig, omegaconf.base.ContainerMetadata, List, list, collections.defaultdict])
+torch.serialization.add_safe_globals([omegaconf.listconfig.ListConfig, omegaconf.base.ContainerMetadata, List, list, collections.defaultdict, dict])
 
 def run(config: Config, accelerator):
     seq_size = config.model.hyperparameters_fixed["seq_size"]
@@ -215,7 +216,7 @@ def train(config: Config, trainer: L.Trainer, run=None):
                 print(f"Checkpoint not found at {checkpoint_path}, initializing new model instead")
             else:
                 try:
-                    torch.serialization.add_safe_globals([omegaconf.listconfig.ListConfig, omegaconf.base.ContainerMetadata, List, list, collections.defaultdict])
+                    torch.serialization.add_safe_globals([omegaconf.listconfig.ListConfig, omegaconf.base.ContainerMetadata, List, list, collections.defaultdict, dict])
                     checkpoint = torch.load(checkpoint_path, map_location=cst.DEVICE, weights_only=True)
                     print(f"Checkpoint loaded successfully with {len(checkpoint)} keys")
                     lr = checkpoint["hyper_parameters"]["lr"]
@@ -335,78 +336,78 @@ def train(config: Config, trainer: L.Trainer, run=None):
                     map_location=cst.DEVICE,
                     len_test_dataloader=len(test_loaders[0])
                 )
-            else:
-                if model_type == cst.ModelType.MLPLOB:
-                    model = Engine(
-                    seq_size=seq_size,
-                    horizon=horizon,
-                    max_epochs=config.experiment.max_epochs,
-                    model_type=config.model.type.value,
-                    is_wandb=config.experiment.is_wandb,
-                    experiment_type=experiment_type,
-                    lr=config.model.hyperparameters_fixed["lr"],
-                    optimizer=config.experiment.optimizer,
-                    dir_ckpt=config.experiment.dir_ckpt,
-                    hidden_dim=config.model.hyperparameters_fixed["hidden_dim"],
-                    num_layers=config.model.hyperparameters_fixed["num_layers"],
-                    num_features=train_input.shape[1],
-                    dataset_type=dataset_type,
-                    num_classes=num_classes,
-                    len_test_dataloader=len(test_loaders[0])
-                )
-                elif model_type == cst.ModelType.TLOB:
-                    model = Engine(
-                    seq_size=seq_size,
-                    horizon=horizon,
-                    max_epochs=config.experiment.max_epochs,
-                    model_type=config.model.type.value,
-                    is_wandb=config.experiment.is_wandb,
-                    experiment_type=experiment_type,
-                    lr=config.model.hyperparameters_fixed["lr"],
-                    optimizer=config.experiment.optimizer,
-                    dir_ckpt=config.experiment.dir_ckpt,
-                    hidden_dim=config.model.hyperparameters_fixed["hidden_dim"],
-                    num_layers=config.model.hyperparameters_fixed["num_layers"],
-                    num_features=train_input.shape[1],
-                    dataset_type=dataset_type,
-                    num_heads=config.model.hyperparameters_fixed["num_heads"],
-                    is_sin_emb=config.model.hyperparameters_fixed["is_sin_emb"],
-                    num_classes=num_classes,
-                    len_test_dataloader=len(test_loaders[0])
-                )
-                elif model_type == cst.ModelType.BINCTABL:
-                    model = Engine(
-                    seq_size=seq_size,
-                    horizon=horizon,
-                    max_epochs=config.experiment.max_epochs,
-                    model_type=config.model.type.value,
-                    is_wandb=config.experiment.is_wandb,
-                    experiment_type=experiment_type,
-                    lr=config.model.hyperparameters_fixed["lr"],
-                    optimizer=config.experiment.optimizer,
-                    dir_ckpt=config.experiment.dir_ckpt,
-                    num_features=train_input.shape[1],
-                    dataset_type=dataset_type,
-                    num_classes=num_classes,
-                    len_test_dataloader=len(test_loaders[0])
-                )
-                elif model_type == cst.ModelType.DEEPLOB:
-                    model = Engine(
-                    seq_size=seq_size,
-                    horizon=horizon,
-                    max_epochs=config.experiment.max_epochs,
-                    model_type=config.model.type.value,
-                    is_wandb=config.experiment.is_wandb,
-                    experiment_type=experiment_type,
-                    lr=config.model.hyperparameters_fixed["lr"],
-                    optimizer=config.experiment.optimizer,
-                    dir_ckpt=config.experiment.dir_ckpt,
-                    num_features=train_input.shape[1],
-                    dataset_type=dataset_type,
-                    num_classes=num_classes,
-                    len_test_dataloader=len(test_loaders[0])
-                )
-            
+    else:
+        if model_type == cst.ModelType.MLPLOB:
+            model = Engine(
+                seq_size=seq_size,
+                horizon=horizon,
+                max_epochs=config.experiment.max_epochs,
+                model_type=config.model.type.value,
+                is_wandb=config.experiment.is_wandb,
+                experiment_type=experiment_type,
+                lr=config.model.hyperparameters_fixed["lr"],
+                optimizer=config.experiment.optimizer,
+                dir_ckpt=config.experiment.dir_ckpt,
+                hidden_dim=config.model.hyperparameters_fixed["hidden_dim"],
+                num_layers=config.model.hyperparameters_fixed["num_layers"],
+                num_features=train_input.shape[1],
+                dataset_type=dataset_type,
+                num_classes=num_classes,
+                len_test_dataloader=len(test_loaders[0])
+        )
+        elif model_type == cst.ModelType.TLOB:
+            model = Engine(
+                seq_size=seq_size,
+                horizon=horizon,
+                max_epochs=config.experiment.max_epochs,
+                model_type=config.model.type.value,
+                is_wandb=config.experiment.is_wandb,
+                experiment_type=experiment_type,
+                lr=config.model.hyperparameters_fixed["lr"],
+                optimizer=config.experiment.optimizer,
+                dir_ckpt=config.experiment.dir_ckpt,
+                hidden_dim=config.model.hyperparameters_fixed["hidden_dim"],
+                num_layers=config.model.hyperparameters_fixed["num_layers"],
+                num_features=train_input.shape[1],
+                dataset_type=dataset_type,
+                num_heads=config.model.hyperparameters_fixed["num_heads"],
+                is_sin_emb=config.model.hyperparameters_fixed["is_sin_emb"],
+                num_classes=num_classes,
+                len_test_dataloader=len(test_loaders[0])
+            )
+        elif model_type == cst.ModelType.BINCTABL:
+            model = Engine(
+                seq_size=seq_size,
+                horizon=horizon,
+                max_epochs=config.experiment.max_epochs,
+                model_type=config.model.type.value,
+                is_wandb=config.experiment.is_wandb,
+                experiment_type=experiment_type,
+                lr=config.model.hyperparameters_fixed["lr"],
+                optimizer=config.experiment.optimizer,
+                dir_ckpt=config.experiment.dir_ckpt,
+                num_features=train_input.shape[1],
+                dataset_type=dataset_type,
+                num_classes=num_classes,
+                len_test_dataloader=len(test_loaders[0])
+            )
+        elif model_type == cst.ModelType.DEEPLOB:
+            model = Engine(
+                seq_size=seq_size,
+                horizon=horizon,
+                max_epochs=config.experiment.max_epochs,
+                model_type=config.model.type.value,
+                is_wandb=config.experiment.is_wandb,
+                experiment_type=experiment_type,
+                lr=config.model.hyperparameters_fixed["lr"],
+                optimizer=config.experiment.optimizer,
+                dir_ckpt=config.experiment.dir_ckpt,
+                num_features=train_input.shape[1],
+                dataset_type=dataset_type,
+                num_classes=num_classes,
+                len_test_dataloader=len(test_loaders[0])
+            )
+        
     print("total number of parameters: ", sum(p.numel() for p in model.parameters()))   
     train_dataloader, val_dataloader = data_module.train_dataloader(), data_module.val_dataloader()
     
@@ -472,117 +473,117 @@ def train(config: Config, trainer: L.Trainer, run=None):
 
                 print(f"Evaluation for COMBINED - Accuracy: {accuracy}, Loss: {loss}, F1: {output[0]['f1_score']}")
 
-def run_wandb(config: Config, accelerator):
-    def wandb_sweep_callback():
-        print("Initializing WandB logger...")
-        wandb_logger = WandbLogger(project=cst.PROJECT_NAME, log_model=False, save_dir=cst.DIR_SAVED_MODEL)
-        run_name = None
-        if not config.experiment.is_sweep:
-            run_name = ""
-            for param in config.model.keys():
-                value = config.model[param]
-                if param == "hyperparameters_sweep":
-                    continue
-                if type(value) == omegaconf.dictconfig.DictConfig:
-                    for key in value.keys():
-                        run_name += str(key[:2]) + "_" + str(value[key]) + "_"
-                else:
-                    run_name += str(param[:2]) + "_" + str(value.value) + "_"
+    def run_wandb(config: Config, accelerator):
+        def wandb_sweep_callback():
+            print("Initializing WandB logger...")
+            wandb_logger = WandbLogger(project=cst.PROJECT_NAME, log_model=False, save_dir=cst.DIR_SAVED_MODEL)
+            run_name = None
+            if not config.experiment.is_sweep:
+                run_name = ""
+                for param in config.model.keys():
+                    value = config.model[param]
+                    if param == "hyperparameters_sweep":
+                        continue
+                    if type(value) == omegaconf.dictconfig.DictConfig:
+                        for key in value.keys():
+                            run_name += str(key[:2]) + "_" + str(value[key]) + "_"
+                    else:
+                        run_name += str(param[:2]) + "_" + str(value.value) + "_"
 
-        print("Starting WandB run initialization...")
-        run = wandb.init(project=cst.PROJECT_NAME, name=run_name, entity="")
-    
-        if config.experiment.is_sweep:
-            model_params = run.config
-        else:
-            model_params = config.model.hyperparameters_fixed
-        wandb_instance_name = f"{config.dataset.type.value}_{config.model.type.value}_horizon_{config.experiment.horizon}_seed_{config.experiment.seed}"
-        for param in config.model.hyperparameters_fixed.keys():
-            if param in model_params:
-                config.model.hyperparameters_fixed[param] = model_params[param]
-                wandb_instance_name += f"_{param}_{model_params[param]}"
+            print("Starting WandB run initialization...")
+            run = wandb.init(project=cst.PROJECT_NAME, name=run_name, entity="")
+        
+            if config.experiment.is_sweep:
+                model_params = run.config
+            else:
+                model_params = config.model.hyperparameters_fixed
+            wandb_instance_name = f"{config.dataset.type.value}_{config.model.type.value}_horizon_{config.experiment.horizon}_seed_{config.experiment.seed}"
+            for param in config.model.hyperparameters_fixed.keys():
+                if param in model_params:
+                    config.model.hyperparameters_fixed[param] = model_params[param]
+                    wandb_instance_name += f"_{param}_{model_params[param]}"
 
-        print(f"Setting run name to {wandb_instance_name}...")
-        run.name = wandb_instance_name
-        seq_size = config.model.hyperparameters_fixed["seq_size"]
-        horizon = config.experiment.horizon
-        dataset = config.dataset.type.value
-        seed = config.experiment.seed
-        if dataset == "LOBSTER":
-            training_stocks = config.dataset.training_stocks
-            config.experiment.dir_ckpt = f"{dataset}_{training_stocks}_seq_size_{seq_size}_horizon_{horizon}_seed_{seed}"
-        else:
-            config.experiment.dir_ckpt = f"{dataset}_seq_size_{seq_size}_horizon_{horizon}_seed_{seed}"
-    
-        print("Configuring Trainer...")
-        trainer = L.Trainer(
-            accelerator=accelerator,
-            precision=cst.PRECISION,
-            max_epochs=config.experiment.max_epochs,
-            callbacks=[
-                EarlyStopping(monitor="val_loss", mode="min", patience=1, verbose=True, min_delta=0.002),
-                TQDMProgressBar(refresh_rate=1000)
-            ],
-            num_sanity_val_steps=0,
-            logger=wandb_logger,
-            detect_anomaly=False,
-            check_val_every_n_epoch=1,
-        )
+            print(f"Setting run name to {wandb_instance_name}...")
+            run.name = wandb_instance_name
+            seq_size = config.model.hyperparameters_fixed["seq_size"]
+            horizon = config.experiment.horizon
+            dataset = config.dataset.type.value
+            seed = config.experiment.seed
+            if dataset == "LOBSTER":
+                training_stocks = config.dataset.training_stocks
+                config.experiment.dir_ckpt = f"{dataset}_{training_stocks}_seq_size_{seq_size}_horizon_{horizon}_seed_{seed}"
+            else:
+                config.experiment.dir_ckpt = f"{dataset}_seq_size_{seq_size}_horizon_{horizon}_seed_{seed}"
+        
+            print("Configuring Trainer...")
+            trainer = L.Trainer(
+                accelerator=accelerator,
+                precision=cst.PRECISION,
+                max_epochs=config.experiment.max_epochs,
+                callbacks=[
+                    EarlyStopping(monitor="val_loss", mode="min", patience=1, verbose=True, min_delta=0.002),
+                    TQDMProgressBar(refresh_rate=1000)
+                ],
+                num_sanity_val_steps=0,
+                logger=wandb_logger,
+                detect_anomaly=False,
+                check_val_every_n_epoch=1,
+            )
 
-        print("Logging configuration to WandB...")
-        run.log({"model": config.model.type.value}, commit=False)
-        run.log({"dataset": config.dataset.type.value}, commit=False)
-        run.log({"seed": config.experiment.seed}, commit=False)
-        run.log({"all_features": config.model.hyperparameters_fixed["all_features"]}, commit=False)
+            print("Logging configuration to WandB...")
+            run.log({"model": config.model.type.value}, commit=False)
+            run.log({"dataset": config.dataset.type.value}, commit=False)
+            run.log({"seed": config.experiment.seed}, commit=False)
+            run.log({"all_features": config.model.hyperparameters_fixed["all_features"]}, commit=False)
+            if config.dataset.type == cst.DatasetType.LOBSTER:
+                for i in range(len(config.dataset.training_stocks)):
+                    run.log({f"training stock{i}": config.dataset.training_stocks[i]}, commit=False)
+                for i in range(len(config.dataset.testing_stocks)):
+                    run.log({f"testing stock{i}": config.dataset.testing_stocks[i]}, commit=False)
+                run.log({"sampling_type": config.dataset.sampling_type.value}, commit=False)
+                if config.dataset.sampling_type == SamplingType.TIME:
+                    run.log({"sampling_time": config.dataset.sampling_time}, commit=False)
+                elif config.dataset.sampling_type == SamplingType.QUANTITY:
+                    run.log({"sampling_quantity": config.dataset.sampling_quantity}, commit=False)
+            print("Calling train function...")
+            train(config, trainer, run)
+            run.finish()
+
+        return wandb_sweep_callback
+
+    def sweep_init(config: Config):
+        wandb.login("")
+        parameters = {}
+        for key in config.model.hyperparameters_sweep.keys():
+            parameters[key] = {'values': list(config.model.hyperparameters_sweep[key])}
+        sweep_config = {
+            'method': 'grid',
+            'metric': {
+                'goal': 'minimize',
+                'name': 'val_loss'
+            },
+            'early_terminate': {
+                'type': 'hyperband',
+                'min_iter': 3,
+                'eta': 1.5
+            },
+            'run_cap': 100,
+            'parameters': {**parameters}
+        }
+        return sweep_config
+
+    def print_setup(config: Config):
+        print("Model type: ", config.model.type)
+        print("Dataset: ", config.dataset.type)
+        print("Seed: ", config.experiment.seed)
+        print("Sequence size: ", config.model.hyperparameters_fixed["seq_size"])
+        print("Horizon: ", config.experiment.horizon)
+        print("All features: ", config.model.hyperparameters_fixed["all_features"])
+        print("Is data preprocessed: ", config.experiment.is_data_preprocessed)
+        print("Is wandb: ", config.experiment.is_wandb)
+        print("Is sweep: ", config.experiment.is_sweep)
+        print(config.experiment.type)
+        print("Is debug: ", config.experiment.is_debug) 
         if config.dataset.type == cst.DatasetType.LOBSTER:
-            for i in range(len(config.dataset.training_stocks)):
-                run.log({f"training stock{i}": config.dataset.training_stocks[i]}, commit=False)
-            for i in range(len(config.dataset.testing_stocks)):
-                run.log({f"testing stock{i}": config.dataset.testing_stocks[i]}, commit=False)
-            run.log({"sampling_type": config.dataset.sampling_type.value}, commit=False)
-            if config.dataset.sampling_type == SamplingType.TIME:
-                run.log({"sampling_time": config.dataset.sampling_time}, commit=False)
-            elif config.dataset.sampling_type == SamplingType.QUANTITY:
-                run.log({"sampling_quantity": config.dataset.sampling_quantity}, commit=False)
-        print("Calling train function...")
-        train(config, trainer, run)
-        run.finish()
-
-    return wandb_sweep_callback
-
-def sweep_init(config: Config):
-    wandb.login("")
-    parameters = {}
-    for key in config.model.hyperparameters_sweep.keys():
-        parameters[key] = {'values': list(config.model.hyperparameters_sweep[key])}
-    sweep_config = {
-        'method': 'grid',
-        'metric': {
-            'goal': 'minimize',
-            'name': 'val_loss'
-        },
-        'early_terminate': {
-            'type': 'hyperband',
-            'min_iter': 3,
-            'eta': 1.5
-        },
-        'run_cap': 100,
-        'parameters': {**parameters}
-    }
-    return sweep_config
-
-def print_setup(config: Config):
-    print("Model type: ", config.model.type)
-    print("Dataset: ", config.dataset.type)
-    print("Seed: ", config.experiment.seed)
-    print("Sequence size: ", config.model.hyperparameters_fixed["seq_size"])
-    print("Horizon: ", config.experiment.horizon)
-    print("All features: ", config.model.hyperparameters_fixed["all_features"])
-    print("Is data preprocessed: ", config.experiment.is_data_preprocessed)
-    print("Is wandb: ", config.experiment.is_wandb)
-    print("Is sweep: ", config.experiment.is_sweep)
-    print(config.experiment.type)
-    print("Is debug: ", config.experiment.is_debug) 
-    if config.dataset.type == cst.DatasetType.LOBSTER:
-        print("Training stocks: ", config.dataset.training_stocks)
-        print("Testing stocks: ", config.dataset.testing_stocks)
+            print("Training stocks: ", config.dataset.training_stocks)
+            print("Testing stocks: ", config.dataset.testing_stocks)

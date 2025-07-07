@@ -46,7 +46,9 @@ class Engine(L.LightningModule):
         self.len_test_dataloader = len_test_dataloader
 
     def forward(self, x, batch_idx=None):
-        # Ensure input is in the correct shape for transformer: (batch_size, seq_length, embedding_dim)
+        # Handle potential 4D input (e.g., (batch_size, 1, seq_length, num_features))
+        if x.dim() == 4 and x.size(1) == 1:
+            x = x.squeeze(1)  # Remove the singleton dimension
         batch_size, seq_length, num_features = x.size()
         x = self.linear_projection(x)  # Project to (batch_size, seq_length, hidden_dim)
         output = self.model(x)  # Pass through TLOB model
