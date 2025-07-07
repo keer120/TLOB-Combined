@@ -46,6 +46,7 @@ class Engine(L.LightningModule):
         self.len_test_dataloader = len_test_dataloader
 
     def forward(self, x, batch_idx=None):
+        x = x.to(self.device)  # Ensure input is on the same device as the model
         print(f"Input to Engine.forward: {x.shape}")
         # Ensure input is 3D: (batch_size, seq_length, num_features)
         if x.dim() == 4 and x.size(1) == 1:
