@@ -108,27 +108,38 @@ def labeling(X, len, h, num_classes=3):
     if h < len:
         len = h
     
-    previous_ask_prices = np.lib.stride_tricks.sliding_window_view(X[:, 0], window_shape=len)[:-h]
-    previous_bid_prices = np.lib.stride_tricks.sliding_window_view(X[:, 2], window_shape=len)[:-h]
-    future_ask_prices = np.lib.stride_tricks.sliding_window_view(X[:, 0], window_shape=len)[h:]
-    future_bid_prices = np.lib.stride_tricks.sliding_window_view(X[:, 2], window_shape=len)[h:]
-
-    previous_mid_prices = (previous_ask_prices + previous_bid_prices) / 2
-    future_mid_prices = (future_ask_prices + future_bid_prices) / 2
-
-    previous_mid_prices = np.mean(previous_mid_prices, axis=1)
-    future_mid_prices = np.mean(future_mid_prices, axis=1)
-
-    percentage_change = (future_mid_prices - previous_mid_prices) / previous_mid_prices
-    alpha = np.abs(percentage_change).mean() / 2
+    print(f"Starting labeling with X shape: {X.shape}, len: {len}, h: {h}, num_classes: {num_classes}")
+    # Process in batches to reduce memory usage
+    batch_size = 10000  # Adjustable based on memory constraints
+    n_samples = X.shape[0]
+    labels = np.zeros(n_samples - h, dtype=np.int64)
     
-    print(f"Alpha: {alpha}")
-    if num_classes == 3:
-        labels = np.where(percentage_change < -alpha, 2, np.where(percentage_change > alpha, 0, 1))
-    elif num_classes == 2:
-        labels = np.where(percentage_change > alpha, 0, 1)  # up: 0, stat/down: 1
-    else:
-        raise ValueError(f"Unsupported num_classes: {num_classes}")
+    for i in range(0, n_samples - h, batch_size):
+        print(f"Processing batch {i} to {min(i + batch_size, n_samples - h)}")
+        start_idx = i
+        end_idx = min(i + batch_size, n_samples - h)
+        
+        previous_ask_prices = np.lib.stride_tricks.sliding_window_view(X[start_idx:end_idx, 0], window_shape=len)[:-h]
+        previous_bid_prices = np.lib.stride_tricks.sliding_window_view(X[start_idx:end_idx, 2], window_shape=len)[:-h]
+        future_ask_prices = np.lib.stride_tricks.sliding_window_view(X[start_idx:end_idx, 0], window_shape=len)[h:]
+        future_bid_prices = np.lib.stride_tricks.sliding_window_view(X[start_idx:end_idx, 2], window_shape=len)[h:]
+
+        previous_mid_prices = (previous_ask_prices + previous_bid_prices) / 2
+        future_mid_prices = (future_ask_prices + future_bid_prices) / 2
+
+        previous_mid_prices = np.mean(previous_mid_prices, axis=1)
+        future_mid_prices = np.mean(future_mid_prices, axis=1)
+
+        percentage_change = (future_mid_prices - previous_mid_prices) / previous_mid_prices
+        alpha = np.abs(percentage_change).mean() / 2
+        
+        print(f"Batch {i} alpha: {alpha}")
+        if num_classes == 3:
+            labels[start_idx:end_idx] = np.where(percentage_change < -alpha, 2, np.where(percentage_change > alpha, 0, 1))
+        elif num_classes == 2:
+            labels[start_idx:end_idx] = np.where(percentage_change > alpha, 0, 1)  # up: 0, stat/down: 1
+        else:
+            raise ValueError(f"Unsupported num_classes: {num_classes}")
 
     unique_labels, counts = np.unique(labels, return_counts=True)
     print(f"Number of labels: {dict(zip(unique_labels, counts))}")
@@ -138,4 +149,5 @@ def labeling(X, len, h, num_classes=3):
     elif num_classes == 2 and len(unique_labels) < 2:
         print(f"Warning: Only {len(unique_labels)} classes found in labels: {unique_labels}. Expected 2 classes (up, stat/down).")
     
+    print(f"Labeling complete for X shape: {X.shape}")
     return labels

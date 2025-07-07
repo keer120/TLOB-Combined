@@ -21,7 +21,7 @@ from sklearn.metrics import confusion_matrix
 from typing import List
 
 # Add safe globals to allow deserialization of checkpoint
-torch.serialization.add_safe_globals([omegaconf.listconfig.ListConfig, omegaconf.base.ContainerMetadata, List])
+torch.serialization.add_safe_globals([omegaconf.listconfig.ListConfig, omegaconf.base.ContainerMetadata, list])
 
 def run(config: Config, accelerator):
     seq_size = config.model.hyperparameters_fixed["seq_size"]
@@ -166,7 +166,7 @@ def train(config: Config, trainer: L.Trainer, run=None):
         train_set = Dataset(train_input, train_labels, seq_size)
         val_set = Dataset(val_input, val_labels, seq_size)
         test_set = Dataset(test_input, test_labels, seq_size)
-        test_set.length = 1000
+        test_set.length = 1000  # Limit test set size to reduce memory usage
         if config.experiment.is_debug:
             train_set.length = 1000
             val_set.length = 1000
@@ -208,7 +208,10 @@ def train(config: Config, trainer: L.Trainer, run=None):
     if "FINETUNING" in experiment_type or "EVALUATION" in experiment_type:
         if checkpoint_ref != "":
             print(f"Attempting to load checkpoint from: {checkpoint_path}")
+            if not os.path.exists(checkpoint_path):
+                raise FileNotFoundError(f"Checkpoint not found at {checkpoint_path}")
             checkpoint = torch.load(checkpoint_path, map_location=cst.DEVICE, weights_only=True)
+            print(f"Checkpoint loaded successfully with {len(checkpoint)} keys")  # Debug print
             
         print("Loading model from checkpoint: ", config.experiment.checkpoint_reference) 
         lr = checkpoint["hyper_parameters"]["lr"]

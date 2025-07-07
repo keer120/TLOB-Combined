@@ -5,6 +5,7 @@ from models.deeplob import DeepLOB
 from transformers import AutoModelForSeq2SeqLM
 
 def pick_model(model_type, hidden_dim, num_layers, seq_size, num_features, num_heads=8, is_sin_emb=False, dataset_type=None, num_classes=3):
+    print(f"Initializing model: type={model_type}, hidden_dim={hidden_dim}, num_layers={num_layers}, seq_size={seq_size}, num_features={num_features}, num_classes={num_classes}")
     if model_type == "MLPLOB":
         return MLPLOB(hidden_dim, num_layers, seq_size, num_features, dataset_type, num_classes=num_classes)
     elif model_type == "TLOB":

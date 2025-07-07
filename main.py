@@ -23,19 +23,21 @@ def hydra_app(config: Config):
     set_reproducibility(config.experiment.seed)
     print(f"Using device: {cst.DEVICE}")
     print("Starting configuration setup...")
-    
-    # Check checkpoint existence for evaluation
+
+    # Validate configuration
+    print(f"Validating config: model={config.model.type}, dataset={config.dataset.type}, checkpoint={config.experiment.checkpoint_reference}")
     if "EVALUATION" in config.experiment.type:
         checkpoint_path = os.path.join(cst.DIR_SAVED_MODEL, config.experiment.checkpoint_reference.replace("data/checkpoints/", ""))
         if not os.path.exists(checkpoint_path):
             raise FileNotFoundError(f"Checkpoint not found at: {checkpoint_path}")
+        print(f"Checkpoint validated at: {checkpoint_path}")
 
     if cst.DEVICE == "cpu":
         accelerator = "cpu"
     else:
         accelerator = "gpu"
-    print("Device configured, setting model hyperparameters...")
-    
+    print(f"Device configured, using accelerator: {accelerator}, setting model hyperparameters...")
+
     if config.dataset.type == DatasetType.FI_2010:
         if config.model.type.value == "MLPLOB" or config.model.type.value == "TLOB":
             config.model.hyperparameters_fixed["hidden_dim"] = 144
@@ -48,7 +50,7 @@ def hydra_app(config: Config):
     elif config.dataset.type == DatasetType.COMBINED:
         if config.model.type.value == "MLPLOB" or config.model.type.value == "TLOB":
             config.model.hyperparameters_fixed["hidden_dim"] = 40
-    
+
     if config.dataset.type.value == "LOBSTER" and not config.experiment.is_data_preprocessed:
         print("Preparing LOBSTER dataset...")
         data_builder = LOBSTERDataBuilder(
@@ -62,7 +64,7 @@ def hydra_app(config: Config):
         )
         data_builder.prepare_save_datasets()
         print("LOBSTER dataset preparation complete.")
-        
+
     elif config.dataset.type.value == "FI_2010" and not config.experiment.is_data_preprocessed:
         print("Preparing FI_2010 dataset...")
         try:
@@ -75,7 +77,7 @@ def hydra_app(config: Config):
             print("FI_2010 data extracted.")
         except Exception as e:
             raise Exception(f"Error downloading or extracting FI_2010 data: {e}")
-        
+
     elif config.dataset.type == cst.DatasetType.BTC and not config.experiment.is_data_preprocessed:
         print("Preparing BTC dataset...")
         data_builder = BTCDataBuilder(
@@ -88,7 +90,7 @@ def hydra_app(config: Config):
         )
         data_builder.prepare_save_datasets()
         print("BTC dataset preparation complete.")
-    
+
     elif config.dataset.type == cst.DatasetType.COMBINED and not config.experiment.is_data_preprocessed:
         print("Preparing COMBINED dataset...")
         try:
@@ -104,7 +106,7 @@ def hydra_app(config: Config):
             print("COMBINED dataset preparation complete.")
         except Exception as e:
             raise Exception(f"Error preparing COMBINED dataset: {e}")
-    
+
     print("Dataset preparation complete, starting WandB...")
     if config.experiment.is_wandb:
         print("Initializing WandB run...")
@@ -137,5 +139,9 @@ def set_torch():
 
 if __name__ == "__main__":
     print("Starting main.py...")
-    set_torch()
-    hydra_app()
+    try:
+        set_torch()
+        hydra_app()
+    except Exception as e:
+        print(f"Error in main execution: {str(e)}")
+        raise  # Re-raise to preserve Hydra's error handling
