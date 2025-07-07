@@ -162,9 +162,9 @@ def train(config: Config, trainer: L.Trainer, run=None):
     
     elif dataset_type == "COMBINED":
         print("Loading COMBINED dataset...")
-        train_input, train_labels = combined_load(cst.DATA_DIR + "/COMBINED/train.npy", cst.LEN_SMOOTH, horizon, seq_size)
-        val_input, val_labels = combined_load(cst.DATA_DIR + "/COMBINED/val.npy", cst.LEN_SMOOTH, horizon, seq_size)
-        test_input, test_labels = combined_load(cst.DATA_DIR + "/COMBINED/test.npy", cst.LEN_SMOOTH, horizon, seq_size)
+        train_input, train_labels = combined_load(cst.DATA_DIR + "/COMBINED/train.npy", cst.LEN_SMOOTH, horizon, seq_size=seq_size)
+        val_input, val_labels = combined_load(cst.DATA_DIR + "/COMBINED/val.npy", cst.LEN_SMOOTH, horizon, seq_size=seq_size)
+        test_input, test_labels = combined_load(cst.DATA_DIR + "/COMBINED/test.npy", cst.LEN_SMOOTH, horizon, seq_size=seq_size)
         train_set = Dataset(train_input, train_labels, seq_size)
         val_set = Dataset(val_input, val_labels, seq_size)
         test_set = Dataset(test_input, test_labels, seq_size)
@@ -412,7 +412,7 @@ def train(config: Config, trainer: L.Trainer, run=None):
     print("total number of parameters: ", sum(p.numel() for p in model.parameters()))   
     train_dataloader, val_dataloader = data_module.train_dataloader(), data_module.val_dataloader()
     print("Dataloaders created.")
-    
+
     if "TRAINING" in experiment_type or "FINETUNING" in experiment_type:
         trainer.fit(model, train_dataloader, val_dataloader)
         best_model_path = model.last_path_ckpt
