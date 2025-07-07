@@ -17,6 +17,7 @@ from preprocessing.combined import combined_load
 from preprocessing.dataset import Dataset, DataModule
 import constants as cst
 from constants import DatasetType, SamplingType
+from sklearn.metrics import confusion_matrix  # For confusion matrix
 torch.serialization.add_safe_globals([omegaconf.listconfig.ListConfig])
 
 def run(config: Config, accelerator):
@@ -36,7 +37,7 @@ def run(config: Config, accelerator):
         callbacks=[
             EarlyStopping(monitor="val_loss", mode="min", patience=1, verbose=True, min_delta=0.002),
             TQDMProgressBar(refresh_rate=100)
-            ],
+        ],
         num_sanity_val_steps=0,
         detect_anomaly=False,
         profiler=None,
@@ -283,7 +284,7 @@ def train(config: Config, trainer: L.Trainer, run=None):
                 model_type=config.model.type.value,
                 is_wandb=config.experiment.is_wandb,
                 experiment_type=experiment_type,
-                lr= config.model.hyperparameters_fixed["lr"],
+                lr=config.model.hyperparameters_fixed["lr"],
                 optimizer=config.experiment.optimizer,
                 dir_ckpt=config.experiment.dir_ckpt,
                 hidden_dim=config.model.hyperparameters_fixed["hidden_dim"],
@@ -364,7 +365,7 @@ def train(config: Config, trainer: L.Trainer, run=None):
                 run.log({f"f1 FI_2010 ": output[0]["f1_score"]}, commit=False)
             elif run is not None and dataset_type == "COMBINED":
                 run.log({f"f1 COMBINED best": output[0]["f1_score"]}, commit=False)
-    else:
+    else:  # EVALUATION block
         for i in range(len(test_loaders)):
             test_dataloader = test_loaders[i]
             output = trainer.test(model, test_dataloader)
@@ -374,6 +375,37 @@ def train(config: Config, trainer: L.Trainer, run=None):
                 run.log({f"f1 FI_2010 ": output[0]["f1_score"]}, commit=False)
             elif run is not None and dataset_type == "COMBINED":
                 run.log({f"f1 COMBINED best": output[0]["f1_score"]}, commit=False)
+
+            # Custom evaluation and logging for COMBINED dataset
+            if dataset_type == "COMBINED" and run is not None:
+                model.eval()
+                all_preds = []
+                all_labels = []
+                with torch.no_grad():
+                    for batch in test_dataloader:
+                        inputs, labels = batch
+                        inputs, labels = inputs.to(cst.DEVICE), labels.to(cst.DEVICE)
+                        outputs = model(inputs)
+                        _, predicted = torch.max(outputs.data, 1)
+                        all_preds.extend(predicted.cpu().numpy())
+                        all_labels.extend(labels.cpu().numpy())
+
+                # Compute additional metrics
+                accuracy = sum(1 for p, l in zip(all_preds, all_labels) if p == l) / len(all_labels)
+                loss = torch.nn.functional.cross_entropy(torch.tensor(outputs), torch.tensor(labels)).item()  # Approximate loss
+
+                # Log metrics
+                run.log({
+                    "test_accuracy": accuracy,
+                    "test_loss": loss,
+                    "f1_COMBINED_best": output[0]["f1_score"]  # Retain existing F1 score
+                }, commit=False)
+
+                # Log confusion matrix
+                cm = confusion_matrix(all_labels, all_preds)
+                run.log({"confusion_matrix": wandb.plot.confusion_matrix(probs=None, y_true=all_labels, preds=all_preds)})
+
+                print(f"Evaluation for COMBINED - Accuracy: {accuracy}, Loss: {loss}, F1: {output[0]['f1_score']}")
 
 def run_wandb(config: Config, accelerator):
     def wandb_sweep_callback():
