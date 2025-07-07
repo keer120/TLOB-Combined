@@ -46,8 +46,9 @@ def run(config: Config, accelerator):
     train(config, trainer)
 
 def train(config: Config, trainer: L.Trainer, run=None):
-    print("Starting train function...")  # New debug print
+    print("Starting train function...")  # Debug print
     print_setup(config)
+    print("Beginning data loading...")  # Debug print
     dataset_type = config.dataset.type.value
     seq_size = config.model.hyperparameters_fixed["seq_size"]
     horizon = config.experiment.horizon
@@ -125,7 +126,7 @@ def train(config: Config, trainer: L.Trainer, run=None):
         for i in range(len(testing_stocks)):
             path = cst.DATA_DIR + "/" + testing_stocks[i] + "/test.npy"
             test_input, test_labels = lobster_load(path, config.model.hyperparameters_fixed["all_features"], cst.LEN_SMOOTH, horizon, seq_size)
-            test_set = Dataset(test_input, test_labels, seq_size)  # Define test_set here
+            test_set = Dataset(test_input, test_labels, seq_size)
             test_dataloader = DataLoader(
                 dataset=test_set,
                 batch_size=config.dataset.batch_size*4,
@@ -142,7 +143,7 @@ def train(config: Config, trainer: L.Trainer, run=None):
         if config.experiment.is_debug:
             train_set.length = 1000
             val_set.length = 1000
-            for test_set in test_loaders:  # Apply to all test_sets
+            for test_set in test_loaders:
                 test_set.dataset.length = 10000
         data_module = DataModule(
             train_set=train_set,
@@ -153,12 +154,14 @@ def train(config: Config, trainer: L.Trainer, run=None):
         )
     
     elif dataset_type == "COMBINED":
+        print("Loading COMBINED dataset...")  # Debug print
         train_input, train_labels = combined_load(cst.DATA_DIR + "/COMBINED/train.npy", cst.LEN_SMOOTH, horizon, seq_size)
         val_input, val_labels = combined_load(cst.DATA_DIR + "/COMBINED/val.npy", cst.LEN_SMOOTH, horizon, seq_size)
         test_input, test_labels = combined_load(cst.DATA_DIR + "/COMBINED/test.npy", cst.LEN_SMOOTH, horizon, seq_size)
         train_set = Dataset(train_input, train_labels, seq_size)
         val_set = Dataset(val_input, val_labels, seq_size)
         test_set = Dataset(test_input, test_labels, seq_size)
+        test_set.length = 1000  # Limit test set to 1000 samples
         if config.experiment.is_debug:
             train_set.length = 1000
             val_set.length = 1000
@@ -172,6 +175,7 @@ def train(config: Config, trainer: L.Trainer, run=None):
             num_workers=4
         )
         test_loaders = [data_module.test_dataloader()]
+        print("COMBINED dataset loaded successfully...")  # Debug print
     
     else:
         raise ValueError(f"Unknown dataset type: {dataset_type}")
@@ -416,7 +420,7 @@ def train(config: Config, trainer: L.Trainer, run=None):
 
 def run_wandb(config: Config, accelerator):
     def wandb_sweep_callback():
-        print("Initializing WandB logger...")  # New debug print
+        print("Initializing WandB logger...")  # Debug print
         wandb_logger = WandbLogger(project=cst.PROJECT_NAME, log_model=False, save_dir=cst.DIR_SAVED_MODEL)
         run_name = None
         if not config.experiment.is_sweep:
@@ -431,7 +435,7 @@ def run_wandb(config: Config, accelerator):
                 else:
                     run_name += str(param[:2]) + "_" + str(value.value) + "_"
 
-        print("Starting WandB run initialization...")  # New debug print
+        print("Starting WandB run initialization...")  # Debug print
         run = wandb.init(project=cst.PROJECT_NAME, name=run_name, entity="")
     
         if config.experiment.is_sweep:
@@ -444,7 +448,7 @@ def run_wandb(config: Config, accelerator):
                 config.model.hyperparameters_fixed[param] = model_params[param]
                 wandb_instance_name += f"_{param}_{model_params[param]}"
 
-        print(f"Setting run name to {wandb_instance_name}...")  # New debug print
+        print(f"Setting run name to {wandb_instance_name}...")  # Debug print
         run.name = wandb_instance_name
         seq_size = config.model.hyperparameters_fixed["seq_size"]
         horizon = config.experiment.horizon
@@ -456,7 +460,7 @@ def run_wandb(config: Config, accelerator):
         else:
             config.experiment.dir_ckpt = f"{dataset}_seq_size_{seq_size}_horizon_{horizon}_seed_{seed}"
     
-        print("Configuring Trainer...")  # New debug print
+        print("Configuring Trainer...")  # Debug print
         trainer = L.Trainer(
             accelerator=accelerator,
             precision=cst.PRECISION,
@@ -471,7 +475,7 @@ def run_wandb(config: Config, accelerator):
             check_val_every_n_epoch=1,
         )
 
-        print("Logging configuration to WandB...")  # New debug print
+        print("Logging configuration to WandB...")  # Debug print
         run.log({"model": config.model.type.value}, commit=False)
         run.log({"dataset": config.dataset.type.value}, commit=False)
         run.log({"seed": config.experiment.seed}, commit=False)
@@ -486,7 +490,7 @@ def run_wandb(config: Config, accelerator):
                 run.log({"sampling_time": config.dataset.sampling_time}, commit=False)
             elif config.dataset.sampling_type == SamplingType.QUANTITY:
                 run.log({"sampling_quantity": config.dataset.sampling_quantity}, commit=False)
-        print("Calling train function...")  # New debug print
+        print("Calling train function...")  # Debug print
         train(config, trainer, run)
         run.finish()
 
