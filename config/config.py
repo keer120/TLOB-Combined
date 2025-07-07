@@ -4,25 +4,24 @@ from dataclasses import dataclass, field
 from constants import DatasetType, ModelType, SamplingType
 from omegaconf import MISSING, OmegaConf
 
-
 @dataclass
 class Model:
     hyperparameters_fixed: dict = MISSING
     hyperparameters_sweep: dict = MISSING
     type: ModelType = MISSING
-    
+
 @dataclass
 class MLPLOB(Model):
     hyperparameters_fixed: dict = field(default_factory=lambda: {"num_layers": 3, "hidden_dim": 40, "lr": 0.0003, "seq_size": 384, "all_features": True})
     hyperparameters_sweep: dict = field(default_factory=lambda: {"num_layers": [3, 6], "hidden_dim": [128], "lr": [0.0003], "seq_size": [384]})
     type: ModelType = ModelType.MLPLOB
-    
+
 @dataclass
 class TLOB(Model):
-    hyperparameters_fixed: dict = field(default_factory=lambda: {"num_layers": 4, "hidden_dim": 40, "num_heads": 1, "is_sin_emb": True, "lr": 0.0001, "seq_size": 128, "all_features": True})
-    hyperparameters_sweep: dict = field(default_factory=lambda: {"num_layers": [4, 6], "hidden_dim": [128, 256], "num_heads": [1], "is_sin_emb": [True], "lr": [0.0001], "seq_size": [128]})
+    hyperparameters_fixed: dict = field(default_factory=lambda: {"num_layers": 4, "hidden_dim": 40, "num_heads": 1, "is_sin_emb": True, "lr": 0.0001, "seq_size": 64, "all_features": True})  # Reduced seq_size to 64
+    hyperparameters_sweep: dict = field(default_factory=lambda: {"num_layers": [4, 6], "hidden_dim": [128, 256], "num_heads": [1], "is_sin_emb": [True], "lr": [0.0001], "seq_size": [64]})  # Updated sweep
     type: ModelType = ModelType.TLOB
-    
+
 @dataclass
 class BiNCTABL(Model):
     hyperparameters_fixed: dict = field(default_factory=lambda: {"lr": 0.001, "seq_size": 10, "all_features": False})
@@ -36,16 +35,26 @@ class DeepLOB(Model):
     type: ModelType = ModelType.DEEPLOB
 
 @dataclass
-class Dataset:  
+class Dataset:
     type: DatasetType = MISSING
     dates: list = MISSING
     batch_size: int = MISSING
+    sampling_type: SamplingType = SamplingType.NONE  # Default to avoid errors
+    sampling_time: str = "1s"  # Default placeholder
+    sampling_quantity: int = 0  # Default placeholder
+    training_stocks: list = field(default_factory=lambda: [])  # Default empty list
+    testing_stocks: list = field(default_factory=lambda: [])  # Default empty list
 
 @dataclass
 class FI_2010(Dataset):
     type: DatasetType = DatasetType.FI_2010
     dates: list = field(default_factory=lambda: ["2010-01-01", "2010-12-31"])
     batch_size: int = 32
+    sampling_type: SamplingType = SamplingType.NONE
+    sampling_time: str = "1s"
+    sampling_quantity: int = 0
+    training_stocks: list = field(default_factory=lambda: ["FI_2010"])
+    testing_stocks: list = field(default_factory=lambda: ["FI_2010"])
 
 @dataclass
 class LOBSTER(Dataset):
@@ -57,7 +66,7 @@ class LOBSTER(Dataset):
     training_stocks: list = field(default_factory=lambda: ["INTC"])
     testing_stocks: list = field(default_factory=lambda: ["INTC"])
     batch_size: int = 128
-    
+
 @dataclass
 class BTC(Dataset):
     type: DatasetType = DatasetType.BTC
@@ -73,12 +82,12 @@ class BTC(Dataset):
 class COMBINED(Dataset):
     type: DatasetType = DatasetType.COMBINED
     dates: list = field(default_factory=lambda: ["2025-05-12", "2025-05-19"])
-    batch_size: int = 64
-    sampling_type: SamplingType = SamplingType.NONE  # Added default
-    sampling_time: str = "1s"  # Placeholder, adjust if needed
-    sampling_quantity: int = 0  # No sampling quantity required
-    training_stocks: list = field(default_factory=lambda: ["COMBINED"])  # Default value
-    testing_stocks: list = field(default_factory=lambda: ["COMBINED"])   # Default value
+    batch_size: int = 32  # Reduced from 64 to 32
+    sampling_type: SamplingType = SamplingType.NONE
+    sampling_time: str = "1s"
+    sampling_quantity: int = 0
+    training_stocks: list = field(default_factory=lambda: ["COMBINED"])
+    testing_stocks: list = field(default_factory=lambda: ["COMBINED"])
 
 @dataclass
 class Experiment:
@@ -87,13 +96,14 @@ class Experiment:
     is_sweep: bool = False
     type: list = field(default_factory=lambda: ["TRAINING"])
     is_debug: bool = False
+    debug_mode: bool = False  # New flag for debugging
     checkpoint_reference: str = ""
     seed: int = 1
     horizon: int = 10
     max_epochs: int = 10
     dir_ckpt: str = "model.ckpt"
     optimizer: str = "Adam"
-    
+
 defaults = [Model, Experiment, Dataset]
 
 @dataclass
@@ -106,7 +116,7 @@ class Config:
         {"hydra/hydra_logging": "disabled"},
         "_self_"
     ])
-    
+
 cs = ConfigStore.instance()
 cs.store(name="config", node=Config)
 cs.store(group="model", name="mlplob", node=MLPLOB)
