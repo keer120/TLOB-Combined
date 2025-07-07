@@ -334,9 +334,9 @@ def train(config: Config, trainer: L.Trainer, run=None):
                     map_location=cst.DEVICE,
                     len_test_dataloader=len(test_loaders[0])
                 )
-else:
-    if model_type == cst.ModelType.MLPLOB:
-        model = Engine(
+    else:
+        if model_type == cst.ModelType.MLPLOB:
+            model = Engine(
             seq_size=seq_size,
             horizon=horizon,
             max_epochs=config.experiment.max_epochs,
@@ -353,8 +353,8 @@ else:
             num_classes=num_classes,
             len_test_dataloader=len(test_loaders[0])
         )
-    elif model_type == cst.ModelType.TLOB:
-        model = Engine(
+        elif model_type == cst.ModelType.TLOB:
+            model = Engine(
             seq_size=seq_size,
             horizon=horizon,
             max_epochs=config.experiment.max_epochs,
@@ -373,8 +373,8 @@ else:
             num_classes=num_classes,
             len_test_dataloader=len(test_loaders[0])
         )
-    elif model_type == cst.ModelType.BINCTABL:
-        model = Engine(
+        elif model_type == cst.ModelType.BINCTABL:
+            model = Engine(
             seq_size=seq_size,
             horizon=horizon,
             max_epochs=config.experiment.max_epochs,
@@ -389,8 +389,8 @@ else:
             num_classes=num_classes,
             len_test_dataloader=len(test_loaders[0])
         )
-    elif model_type == cst.ModelType.DEEPLOB:
-        model = Engine(
+        elif model_type == cst.ModelType.DEEPLOB:
+            model = Engine(
             seq_size=seq_size,
             horizon=horizon,
             max_epochs=config.experiment.max_epochs,
