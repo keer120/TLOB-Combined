@@ -552,11 +552,11 @@ def run_wandb(config: Config, accelerator):
 
         return wandb_sweep_callback
 
-    def sweep_init(config: Config):
-        wandb.login("")
-        parameters = {}
-        for key in config.model.hyperparameters_sweep.keys():
-            parameters[key] = {'values': list(config.model.hyperparameters_sweep[key])}
+def sweep_init(config: Config):
+    wandb.login("")
+    parameters = {}
+    for key in config.model.hyperparameters_sweep.keys():
+        parameters[key] = {'values': list(config.model.hyperparameters_sweep[key])}
         sweep_config = {
             'method': 'grid',
             'metric': {
@@ -573,18 +573,18 @@ def run_wandb(config: Config, accelerator):
         }
         return sweep_config
 
-    def print_setup(config: Config):
-        print("Model type: ", config.model.type)
-        print("Dataset: ", config.dataset.type)
-        print("Seed: ", config.experiment.seed)
-        print("Sequence size: ", config.model.hyperparameters_fixed["seq_size"])
-        print("Horizon: ", config.experiment.horizon)
-        print("All features: ", config.model.hyperparameters_fixed["all_features"])
-        print("Is data preprocessed: ", config.experiment.is_data_preprocessed)
-        print("Is wandb: ", config.experiment.is_wandb)
-        print("Is sweep: ", config.experiment.is_sweep)
-        print(config.experiment.type)
-        print("Is debug: ", config.experiment.is_debug) 
-        if config.dataset.type == cst.DatasetType.LOBSTER:
-            print("Training stocks: ", config.dataset.training_stocks)
-            print("Testing stocks: ", config.dataset.testing_stocks)
+def print_setup(config: Config):
+    print("Model type: ", config.model.type)
+    print("Dataset: ", config.dataset.type)
+    print("Seed: ", config.experiment.seed)
+    print("Sequence size: ", config.model.hyperparameters_fixed["seq_size"])
+    print("Horizon: ", config.experiment.horizon)
+    print("All features: ", config.model.hyperparameters_fixed["all_features"])
+    print("Is data preprocessed: ", config.experiment.is_data_preprocessed)
+    print("Is wandb: ", config.experiment.is_wandb)
+    print("Is sweep: ", config.experiment.is_sweep)
+    print(config.experiment.type)
+    print("Is debug: ", config.experiment.is_debug) 
+    if config.dataset.type == cst.DatasetType.LOBSTER:
+        print("Training stocks: ", config.dataset.training_stocks)
+        print("Testing stocks: ", config.dataset.testing_stocks)
