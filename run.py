@@ -334,78 +334,78 @@ def train(config: Config, trainer: L.Trainer, run=None):
                     map_location=cst.DEVICE,
                     len_test_dataloader=len(test_loaders[0])
                 )
-    else:
-        if model_type == cst.ModelType.MLPLOB:
-            model = Engine(
-            seq_size=seq_size,
-            horizon=horizon,
-            max_epochs=config.experiment.max_epochs,
-            model_type=config.model.type.value,
-            is_wandb=config.experiment.is_wandb,
-            experiment_type=experiment_type,
-            lr=config.model.hyperparameters_fixed["lr"],
-            optimizer=config.experiment.optimizer,
-            dir_ckpt=config.experiment.dir_ckpt,
-            hidden_dim=config.model.hyperparameters_fixed["hidden_dim"],
-            num_layers=config.model.hyperparameters_fixed["num_layers"],
-            num_features=train_input.shape[1],
-            dataset_type=dataset_type,
-            num_classes=num_classes,
-            len_test_dataloader=len(test_loaders[0])
-        )
-        elif model_type == cst.ModelType.TLOB:
-            model = Engine(
-            seq_size=seq_size,
-            horizon=horizon,
-            max_epochs=config.experiment.max_epochs,
-            model_type=config.model.type.value,
-            is_wandb=config.experiment.is_wandb,
-            experiment_type=experiment_type,
-            lr=config.model.hyperparameters_fixed["lr"],
-            optimizer=config.experiment.optimizer,
-            dir_ckpt=config.experiment.dir_ckpt,
-            hidden_dim=config.model.hyperparameters_fixed["hidden_dim"],
-            num_layers=config.model.hyperparameters_fixed["num_layers"],
-            num_features=train_input.shape[1],
-            dataset_type=dataset_type,
-            num_heads=config.model.hyperparameters_fixed["num_heads"],
-            is_sin_emb=config.model.hyperparameters_fixed["is_sin_emb"],
-            num_classes=num_classes,
-            len_test_dataloader=len(test_loaders[0])
-        )
-        elif model_type == cst.ModelType.BINCTABL:
-            model = Engine(
-            seq_size=seq_size,
-            horizon=horizon,
-            max_epochs=config.experiment.max_epochs,
-            model_type=config.model.type.value,
-            is_wandb=config.experiment.is_wandb,
-            experiment_type=experiment_type,
-            lr=config.model.hyperparameters_fixed["lr"],
-            optimizer=config.experiment.optimizer,
-            dir_ckpt=config.experiment.dir_ckpt,
-            num_features=train_input.shape[1],
-            dataset_type=dataset_type,
-            num_classes=num_classes,
-            len_test_dataloader=len(test_loaders[0])
-        )
-        elif model_type == cst.ModelType.DEEPLOB:
-            model = Engine(
-            seq_size=seq_size,
-            horizon=horizon,
-            max_epochs=config.experiment.max_epochs,
-            model_type=config.model.type.value,
-            is_wandb=config.experiment.is_wandb,
-            experiment_type=experiment_type,
-            lr=config.model.hyperparameters_fixed["lr"],
-            optimizer=config.experiment.optimizer,
-            dir_ckpt=config.experiment.dir_ckpt,
-            num_features=train_input.shape[1],
-            dataset_type=dataset_type,
-            num_classes=num_classes,
-            len_test_dataloader=len(test_loaders[0])
-        )
-    
+            else:
+                if model_type == cst.ModelType.MLPLOB:
+                    model = Engine(
+                    seq_size=seq_size,
+                    horizon=horizon,
+                    max_epochs=config.experiment.max_epochs,
+                    model_type=config.model.type.value,
+                    is_wandb=config.experiment.is_wandb,
+                    experiment_type=experiment_type,
+                    lr=config.model.hyperparameters_fixed["lr"],
+                    optimizer=config.experiment.optimizer,
+                    dir_ckpt=config.experiment.dir_ckpt,
+                    hidden_dim=config.model.hyperparameters_fixed["hidden_dim"],
+                    num_layers=config.model.hyperparameters_fixed["num_layers"],
+                    num_features=train_input.shape[1],
+                    dataset_type=dataset_type,
+                    num_classes=num_classes,
+                    len_test_dataloader=len(test_loaders[0])
+                )
+                elif model_type == cst.ModelType.TLOB:
+                    model = Engine(
+                    seq_size=seq_size,
+                    horizon=horizon,
+                    max_epochs=config.experiment.max_epochs,
+                    model_type=config.model.type.value,
+                    is_wandb=config.experiment.is_wandb,
+                    experiment_type=experiment_type,
+                    lr=config.model.hyperparameters_fixed["lr"],
+                    optimizer=config.experiment.optimizer,
+                    dir_ckpt=config.experiment.dir_ckpt,
+                    hidden_dim=config.model.hyperparameters_fixed["hidden_dim"],
+                    num_layers=config.model.hyperparameters_fixed["num_layers"],
+                    num_features=train_input.shape[1],
+                    dataset_type=dataset_type,
+                    num_heads=config.model.hyperparameters_fixed["num_heads"],
+                    is_sin_emb=config.model.hyperparameters_fixed["is_sin_emb"],
+                    num_classes=num_classes,
+                    len_test_dataloader=len(test_loaders[0])
+                )
+                elif model_type == cst.ModelType.BINCTABL:
+                    model = Engine(
+                    seq_size=seq_size,
+                    horizon=horizon,
+                    max_epochs=config.experiment.max_epochs,
+                    model_type=config.model.type.value,
+                    is_wandb=config.experiment.is_wandb,
+                    experiment_type=experiment_type,
+                    lr=config.model.hyperparameters_fixed["lr"],
+                    optimizer=config.experiment.optimizer,
+                    dir_ckpt=config.experiment.dir_ckpt,
+                    num_features=train_input.shape[1],
+                    dataset_type=dataset_type,
+                    num_classes=num_classes,
+                    len_test_dataloader=len(test_loaders[0])
+                )
+                elif model_type == cst.ModelType.DEEPLOB:
+                    model = Engine(
+                    seq_size=seq_size,
+                    horizon=horizon,
+                    max_epochs=config.experiment.max_epochs,
+                    model_type=config.model.type.value,
+                    is_wandb=config.experiment.is_wandb,
+                    experiment_type=experiment_type,
+                    lr=config.model.hyperparameters_fixed["lr"],
+                    optimizer=config.experiment.optimizer,
+                    dir_ckpt=config.experiment.dir_ckpt,
+                    num_features=train_input.shape[1],
+                    dataset_type=dataset_type,
+                    num_classes=num_classes,
+                    len_test_dataloader=len(test_loaders[0])
+                )
+            
     print("total number of parameters: ", sum(p.numel() for p in model.parameters()))   
     train_dataloader, val_dataloader = data_module.train_dataloader(), data_module.val_dataloader()
     
