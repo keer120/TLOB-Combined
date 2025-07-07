@@ -19,6 +19,7 @@ import constants as cst
 from constants import DatasetType, SamplingType
 from sklearn.metrics import confusion_matrix
 from typing import List
+import traceback
 
 # Add safe globals to allow deserialization of checkpoint
 torch.serialization.add_safe_globals([omegaconf.listconfig.ListConfig, omegaconf.base.ContainerMetadata, List, list])
@@ -206,177 +207,207 @@ def train(config: Config, trainer: L.Trainer, run=None):
     print(f"Number of classes for {'evaluation' if 'EVALUATION' in experiment_type else 'training'}: {num_classes}")
     
     if "FINETUNING" in experiment_type or "EVALUATION" in experiment_type:
+        checkpoint_ref = config.experiment.checkpoint_reference
         if checkpoint_ref != "":
-            print(f"Attempting to load checkpoint from: {checkpoint_path}")
-            if not os.path.exists(checkpoint_path):
-                raise FileNotFoundError(f"Checkpoint not found at {checkpoint_path}")
             checkpoint_path = os.path.join(cst.DIR_SAVED_MODEL, checkpoint_ref_clean)
             print(f"Attempting to load checkpoint from: {checkpoint_path}")
-            if checkpoint_ref != "":
-                if not os.path.exists(checkpoint_path):
-                    raise FileNotFoundError(f"Checkpoint not found at {checkpoint_path}")
-                checkpoint = torch.load(checkpoint_path, map_location=cst.DEVICE, weights_only=True)
-                print(f"Checkpoint loaded successfully with {len(checkpoint)} keys")
-            
-        print("Loading model from checkpoint: ", config.experiment.checkpoint_reference) 
-        lr = checkpoint["hyper_parameters"]["lr"]
-        dir_ckpt = checkpoint["hyper_parameters"]["dir_ckpt"]
-        hidden_dim = checkpoint["hyper_parameters"]["hidden_dim"]
-        num_layers = checkpoint["hyper_parameters"]["num_layers"]
-        optimizer = checkpoint["hyper_parameters"]["optimizer"]
-        model_type = checkpoint["hyper_parameters"]["model_type"]
-        max_epochs = checkpoint["hyper_parameters"]["max_epochs"]
-        horizon = checkpoint["hyper_parameters"]["horizon"]
-        seq_size = checkpoint["hyper_parameters"]["seq_size"]
-        if model_type == "MLPLOB":
-            model = Engine.load_from_checkpoint(
-                checkpoint_path, 
-                seq_size=seq_size,
-                horizon=horizon,
-                max_epochs=max_epochs,
-                model_type=model_type,
-                is_wandb=config.experiment.is_wandb,
-                experiment_type=experiment_type,
-                lr=lr,
-                optimizer=optimizer,
-                dir_ckpt=dir_ckpt,
-                hidden_dim=hidden_dim,
-                num_layers=num_layers,
-                num_features=train_input.shape[1],
-                dataset_type=dataset_type,
-                num_classes=num_classes,
-                map_location=cst.DEVICE,
-            )
-        elif model_type == "TLOB":
-            model = Engine.load_from_checkpoint(
-                checkpoint_path,
-                seq_size=seq_size,
-                horizon=horizon,
-                max_epochs=max_epochs,
-                model_type=model_type,
-                is_wandb=config.experiment.is_wandb,
-                experiment_type=experiment_type,
-                lr=lr,
-                optimizer=optimizer,
-                dir_ckpt=dir_ckpt,
-                hidden_dim=hidden_dim,
-                num_layers=num_layers,
-                num_features=train_input.shape[1],
-                dataset_type=dataset_type,
-                num_heads=checkpoint["hyper_parameters"]["num_heads"],
-                is_sin_emb=checkpoint["hyper_parameters"]["is_sin_emb"],
-                num_classes=num_classes,
-                map_location=cst.DEVICE,
-                len_test_dataloader=len(test_loaders[0])
-            )
-        elif model_type == "BINCTABL":
-            model = Engine.load_from_checkpoint(
-                checkpoint_path, 
-                seq_size=seq_size,
-                horizon=horizon,
-                max_epochs=max_epochs,
-                model_type=model_type,
-                is_wandb=config.experiment.is_wandb,
-                experiment_type=experiment_type,
-                lr=lr,
-                optimizer=optimizer,
-                dir_ckpt=dir_ckpt,
-                num_features=train_input.shape[1],
-                dataset_type=dataset_type,
-                num_classes=num_classes,
-                map_location=cst.DEVICE,
-                len_test_dataloader=len(test_loaders[0])
-            )
-        elif model_type == "DEEPLOB":
-            model = Engine.load_from_checkpoint(
-                checkpoint_path, 
-                seq_size=seq_size,
-                horizon=horizon,
-                max_epochs=max_epochs,
-                model_type=model_type,
-                is_wandb=config.experiment.is_wandb,
-                experiment_type=experiment_type,
-                lr=lr,
-                optimizer=optimizer,
-                dir_ckpt=dir_ckpt,
-                num_features=train_input.shape[1],
-                dataset_type=dataset_type,
-                num_classes=num_classes,
-                map_location=cst.DEVICE,
-                len_test_dataloader=len(test_loaders[0])
-            )
-              
+            if not os.path.exists(checkpoint_path):
+                print(f"Checkpoint not found at {checkpoint_path}, initializing new model instead")
+            else:
+                try:
+                    checkpoint = torch.load(checkpoint_path, map_location=cst.DEVICE, weights_only=True)
+                    print(f"Checkpoint loaded successfully with {len(checkpoint)} keys")
+                    # Use checkpoint values for model initialization
+                    lr = checkpoint["hyper_parameters"]["lr"]
+                    dir_ckpt = checkpoint["hyper_parameters"]["dir_ckpt"]
+                    hidden_dim = checkpoint["hyper_parameters"]["hidden_dim"]
+                    num_layers = checkpoint["hyper_parameters"]["num_layers"]
+                    optimizer = checkpoint["hyper_parameters"]["optimizer"]
+                    model_type = checkpoint["hyper_parameters"]["model_type"]
+                    max_epochs = checkpoint["hyper_parameters"]["max_epochs"]
+                    horizon = checkpoint["hyper_parameters"]["horizon"]
+                    seq_size = checkpoint["hyper_parameters"]["seq_size"]
+                    num_heads = checkpoint["hyper_parameters"]["num_heads"]
+                    is_sin_emb = checkpoint["hyper_parameters"]["is_sin_emb"]
+                except Exception as e:
+                    print(f"Checkpoint load failed: {str(e)}, initializing new model instead")
+        # If no checkpoint or loading fails, initialize a new model
+        if checkpoint_ref == "" or not os.path.exists(checkpoint_path) or 'checkpoint' not in locals():
+            print("Initializing new TLOB model for evaluation")
+            model_type = config.model.type
+            if model_type == cst.ModelType.TLOB:
+                model = Engine(
+                    seq_size=config.model.hyperparameters_fixed["seq_size"],
+                    horizon=config.experiment.horizon,
+                    max_epochs=config.experiment.max_epochs,
+                    model_type=config.model.type.value,
+                    is_wandb=config.experiment.is_wandb,
+                    experiment_type=experiment_type,
+                    lr=config.model.hyperparameters_fixed["lr"],
+                    optimizer=config.experiment.optimizer,
+                    dir_ckpt=config.experiment.dir_ckpt,
+                    hidden_dim=config.model.hyperparameters_fixed["hidden_dim"],
+                    num_layers=config.model.hyperparameters_fixed["num_layers"],
+                    num_features=train_input.shape[1],
+                    dataset_type=dataset_type,
+                    num_heads=config.model.hyperparameters_fixed["num_heads"],
+                    is_sin_emb=config.model.hyperparameters_fixed["is_sin_emb"],
+                    num_classes=num_classes,
+                    len_test_dataloader=len(test_loaders[0])
+                )
+            else:
+                raise ValueError(f"Unsupported model type {model_type} for new initialization")
+        else:
+            # Load model from checkpoint if successful
+            print("Loading model from checkpoint: ", config.experiment.checkpoint_reference)
+            if model_type == "MLPLOB":
+                model = Engine.load_from_checkpoint(
+                    checkpoint_path,
+                    seq_size=seq_size,
+                    horizon=horizon,
+                    max_epochs=max_epochs,
+                    model_type=model_type,
+                    is_wandb=config.experiment.is_wandb,
+                    experiment_type=experiment_type,
+                    lr=lr,
+                    optimizer=optimizer,
+                    dir_ckpt=dir_ckpt,
+                    hidden_dim=hidden_dim,
+                    num_layers=num_layers,
+                    num_features=train_input.shape[1],
+                    dataset_type=dataset_type,
+                    num_classes=num_classes,
+                    map_location=cst.DEVICE,
+                )
+            elif model_type == "TLOB":
+                model = Engine.load_from_checkpoint(
+                    checkpoint_path,
+                    seq_size=seq_size,
+                    horizon=horizon,
+                    max_epochs=max_epochs,
+                    model_type=model_type,
+                    is_wandb=config.experiment.is_wandb,
+                    experiment_type=experiment_type,
+                    lr=lr,
+                    optimizer=optimizer,
+                    dir_ckpt=dir_ckpt,
+                    hidden_dim=hidden_dim,
+                    num_layers=num_layers,
+                    num_features=train_input.shape[1],
+                    dataset_type=dataset_type,
+                    num_heads=num_heads,
+                    is_sin_emb=is_sin_emb,
+                    num_classes=num_classes,
+                    map_location=cst.DEVICE,
+                    len_test_dataloader=len(test_loaders[0])
+                )
+            elif model_type == "BINCTABL":
+                model = Engine.load_from_checkpoint(
+                    checkpoint_path,
+                    seq_size=seq_size,
+                    horizon=horizon,
+                    max_epochs=max_epochs,
+                    model_type=model_type,
+                    is_wandb=config.experiment.is_wandb,
+                    experiment_type=experiment_type,
+                    lr=lr,
+                    optimizer=optimizer,
+                    dir_ckpt=dir_ckpt,
+                    num_features=train_input.shape[1],
+                    dataset_type=dataset_type,
+                    num_classes=num_classes,
+                    map_location=cst.DEVICE,
+                    len_test_dataloader=len(test_loaders[0])
+                )
+            elif model_type == "DEEPLOB":
+                model = Engine.load_from_checkpoint(
+                    checkpoint_path,
+                    seq_size=seq_size,
+                    horizon=horizon,
+                    max_epochs=max_epochs,
+                    model_type=model_type,
+                    is_wandb=config.experiment.is_wandb,
+                    experiment_type=experiment_type,
+                    lr=lr,
+                    optimizer=optimizer,
+                    dir_ckpt=dir_ckpt,
+                    num_features=train_input.shape[1],
+                    dataset_type=dataset_type,
+                    num_classes=num_classes,
+                    map_location=cst.DEVICE,
+                    len_test_dataloader=len(test_loaders[0])
+                )
     else:
         if model_type == cst.ModelType.MLPLOB:
             model = Engine(
-                seq_size=seq_size,
-                horizon=horizon,
-                max_epochs=config.experiment.max_epochs,
-                model_type=config.model.type.value,
-                is_wandb=config.experiment.is_wandb,
-                experiment_type=experiment_type,
-                lr=config.model.hyperparameters_fixed["lr"],
-                optimizer=config.experiment.optimizer,
-                dir_ckpt=config.experiment.dir_ckpt,
-                hidden_dim=config.model.hyperparameters_fixed["hidden_dim"],
-                num_layers=config.model.hyperparameters_fixed["num_layers"],
-                num_features=train_input.shape[1],
-                dataset_type=dataset_type,
-                num_classes=num_classes,
-                len_test_dataloader=len(test_loaders[0])
-            )
+            seq_size=seq_size,
+            horizon=horizon,
+            max_epochs=config.experiment.max_epochs,
+            model_type=config.model.type.value,
+            is_wandb=config.experiment.is_wandb,
+            experiment_type=experiment_type,
+            lr=config.model.hyperparameters_fixed["lr"],
+            optimizer=config.experiment.optimizer,
+            dir_ckpt=config.experiment.dir_ckpt,
+            hidden_dim=config.model.hyperparameters_fixed["hidden_dim"],
+            num_layers=config.model.hyperparameters_fixed["num_layers"],
+            num_features=train_input.shape[1],
+            dataset_type=dataset_type,
+            num_classes=num_classes,
+            len_test_dataloader=len(test_loaders[0])
+        )
         elif model_type == cst.ModelType.TLOB:
             model = Engine(
-                seq_size=seq_size,
-                horizon=horizon,
-                max_epochs=config.experiment.max_epochs,
-                model_type=config.model.type.value,
-                is_wandb=config.experiment.is_wandb,
-                experiment_type=experiment_type,
-                lr=config.model.hyperparameters_fixed["lr"],
-                optimizer=config.experiment.optimizer,
-                dir_ckpt=config.experiment.dir_ckpt,
-                hidden_dim=config.model.hyperparameters_fixed["hidden_dim"],
-                num_layers=config.model.hyperparameters_fixed["num_layers"],
-                num_features=train_input.shape[1],
-                dataset_type=dataset_type,
-                num_heads=config.model.hyperparameters_fixed["num_heads"],
-                is_sin_emb=config.model.hyperparameters_fixed["is_sin_emb"],
-                num_classes=num_classes,
-                len_test_dataloader=len(test_loaders[0])
-            )
+            seq_size=seq_size,
+            horizon=horizon,
+            max_epochs=config.experiment.max_epochs,
+            model_type=config.model.type.value,
+            is_wandb=config.experiment.is_wandb,
+            experiment_type=experiment_type,
+            lr=config.model.hyperparameters_fixed["lr"],
+            optimizer=config.experiment.optimizer,
+            dir_ckpt=config.experiment.dir_ckpt,
+            hidden_dim=config.model.hyperparameters_fixed["hidden_dim"],
+            num_layers=config.model.hyperparameters_fixed["num_layers"],
+            num_features=train_input.shape[1],
+            dataset_type=dataset_type,
+            num_heads=config.model.hyperparameters_fixed["num_heads"],
+            is_sin_emb=config.model.hyperparameters_fixed["is_sin_emb"],
+            num_classes=num_classes,
+            len_test_dataloader=len(test_loaders[0])
+        )
         elif model_type == cst.ModelType.BINCTABL:
             model = Engine(
-                seq_size=seq_size,
-                horizon=horizon,
-                max_epochs=config.experiment.max_epochs,
-                model_type=config.model.type.value,
-                is_wandb=config.experiment.is_wandb,
-                experiment_type=experiment_type,
-                lr=config.model.hyperparameters_fixed["lr"],
-                optimizer=config.experiment.optimizer,
-                dir_ckpt=config.experiment.dir_ckpt,
-                num_features=train_input.shape[1],
-                dataset_type=dataset_type,
-                num_classes=num_classes,
-                len_test_dataloader=len(test_loaders[0])
-            )
+            seq_size=seq_size,
+            horizon=horizon,
+            max_epochs=config.experiment.max_epochs,
+            model_type=config.model.type.value,
+            is_wandb=config.experiment.is_wandb,
+            experiment_type=experiment_type,
+            lr=config.model.hyperparameters_fixed["lr"],
+            optimizer=config.experiment.optimizer,
+            dir_ckpt=config.experiment.dir_ckpt,
+            num_features=train_input.shape[1],
+            dataset_type=dataset_type,
+            num_classes=num_classes,
+            len_test_dataloader=len(test_loaders[0])
+        )
         elif model_type == cst.ModelType.DEEPLOB:
             model = Engine(
-                seq_size=seq_size,
-                horizon=horizon,
-                max_epochs=config.experiment.max_epochs,
-                model_type=config.model.type.value,
-                is_wandb=config.experiment.is_wandb,
-                experiment_type=experiment_type,
-                lr=config.model.hyperparameters_fixed["lr"],
-                optimizer=config.experiment.optimizer,
-                dir_ckpt=config.experiment.dir_ckpt,
-                num_features=train_input.shape[1],
-                dataset_type=dataset_type,
-                num_classes=num_classes,
-                len_test_dataloader=len(test_loaders[0])
-            )
+            seq_size=seq_size,
+            horizon=horizon,
+            max_epochs=config.experiment.max_epochs,
+            model_type=config.model.type.value,
+            is_wandb=config.experiment.is_wandb,
+            experiment_type=experiment_type,
+            lr=config.model.hyperparameters_fixed["lr"],
+            optimizer=config.experiment.optimizer,
+            dir_ckpt=config.experiment.dir_ckpt,
+            num_features=train_input.shape[1],
+            dataset_type=dataset_type,
+            num_classes=num_classes,
+            len_test_dataloader=len(test_loaders[0])
+        )
     
     print("total number of parameters: ", sum(p.numel() for p in model.parameters()))   
     train_dataloader, val_dataloader = data_module.train_dataloader(), data_module.val_dataloader()
