@@ -204,8 +204,8 @@ def train(config: Config, trainer: L.Trainer, run=None):
     print()
     
     experiment_type = config.experiment.type
-    num_classes = torch.unique(val_labels).size(0) if "EVALUATION" in experiment_type else torch.unique(train_labels).size(0)
-    print(f"Number of classes for {'evaluation' if 'EVALUATION' in experiment_type else 'training'}: {num_classes}")
+    num_classes = config.model.hyperparameters_fixed.get("num_classes", 3)
+    print(f"Number of classes (from config): {num_classes}")
     print("Data loaded, about to initialize/load model...")
 
     if "FINETUNING" in experiment_type or "EVALUATION" in experiment_type:
