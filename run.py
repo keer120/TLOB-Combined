@@ -206,7 +206,8 @@ def train(config: Config, trainer: L.Trainer, run=None):
     experiment_type = config.experiment.type
     num_classes = torch.unique(val_labels).size(0) if "EVALUATION" in experiment_type else torch.unique(train_labels).size(0)
     print(f"Number of classes for {'evaluation' if 'EVALUATION' in experiment_type else 'training'}: {num_classes}")
-    
+    print("Data loaded, about to initialize/load model...")
+
     if "FINETUNING" in experiment_type or "EVALUATION" in experiment_type:
         checkpoint_ref = config.experiment.checkpoint_reference
         if checkpoint_ref != "":
@@ -407,9 +408,10 @@ def train(config: Config, trainer: L.Trainer, run=None):
                 num_classes=num_classes,
                 len_test_dataloader=len(test_loaders[0])
             )
-        
+    print("Model initialized/loaded.")    
     print("total number of parameters: ", sum(p.numel() for p in model.parameters()))   
     train_dataloader, val_dataloader = data_module.train_dataloader(), data_module.val_dataloader()
+    print("Dataloaders created.")
     
     if "TRAINING" in experiment_type or "FINETUNING" in experiment_type:
         trainer.fit(model, train_dataloader, val_dataloader)
@@ -475,20 +477,20 @@ def train(config: Config, trainer: L.Trainer, run=None):
 
 def run_wandb(config: Config, accelerator):
     def wandb_sweep_callback():
-        print("Initializing WandB logger...")
+        print("Entered run_wandb")
         wandb_logger = WandbLogger(project=cst.PROJECT_NAME, log_model=False, save_dir=cst.DIR_SAVED_MODEL)
         run_name = None
         if not config.experiment.is_sweep:
             run_name = ""
             for param in config.model.keys():
-                    value = config.model[param]
-                    if param == "hyperparameters_sweep":
-                        continue
-                    if type(value) == omegaconf.dictconfig.DictConfig:
-                        for key in value.keys():
-                            run_name += str(key[:2]) + "_" + str(value[key]) + "_"
-                    else:
-                        run_name += str(param[:2]) + "_" + str(value.value) + "_"
+                value = config.model[param]
+                if param == "hyperparameters_sweep":
+                    continue
+                if type(value) == omegaconf.dictconfig.DictConfig:
+                    for key in value.keys():
+                        run_name += str(key[:2]) + "_" + str(value[key]) + "_"
+                else:
+                    run_name += str(param[:2]) + "_" + str(value.value) + "_"
 
             print("Starting WandB run initialization...")
             run = wandb.init(project=cst.PROJECT_NAME, name=run_name, entity="")
@@ -547,10 +549,12 @@ def run_wandb(config: Config, accelerator):
                     run.log({"sampling_quantity": config.dataset.sampling_quantity}, commit=False)
             print("Calling train function...")
             train(config, trainer, run)
+            print("Train function finished.")
             run.finish()
+            print("WandB run finished.")
             return
 
-        wandb_sweep_callback
+    wandb_sweep_callback()  # Make sure this is called!
 
 def sweep_init(config: Config):
     wandb.login("")
