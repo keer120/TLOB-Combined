@@ -17,7 +17,7 @@ from preprocessing.combined import combined_load
 from preprocessing.dataset import Dataset, DataModule
 import constants as cst
 from constants import DatasetType, SamplingType
-from sklearn.metrics import confusion_matrix  # For confusion matrix
+from sklearn.metrics import confusion_matrix
 torch.serialization.add_safe_globals([omegaconf.listconfig.ListConfig])
 
 def run(config: Config, accelerator):
@@ -46,15 +46,17 @@ def run(config: Config, accelerator):
     train(config, trainer)
 
 def train(config: Config, trainer: L.Trainer, run=None):
-    print("Starting train function...")  # Debug print
+    print("Starting train function...")
     print_setup(config)
-    print("Beginning data loading...")  # Debug print
+    print("Beginning data loading...")
     dataset_type = config.dataset.type.value
     seq_size = config.model.hyperparameters_fixed["seq_size"]
     horizon = config.experiment.horizon
     model_type = config.model.type
     checkpoint_ref = config.experiment.checkpoint_reference
-    checkpoint_path = os.path.join(cst.DIR_SAVED_MODEL, model_type.value, checkpoint_ref)
+    # Fix checkpoint path to avoid duplication
+    checkpoint_ref_clean = checkpoint_ref.replace("data/checkpoints/", "")
+    checkpoint_path = os.path.join(cst.DIR_SAVED_MODEL, checkpoint_ref_clean)
     if dataset_type == "FI_2010":
         path = cst.DATA_DIR + "/FI_2010"
         train_input, train_labels, val_input, val_labels, test_input, test_labels = fi_2010_load(path, seq_size, horizon, config.model.hyperparameters_fixed["all_features"])
@@ -154,14 +156,14 @@ def train(config: Config, trainer: L.Trainer, run=None):
         )
     
     elif dataset_type == "COMBINED":
-        print("Loading COMBINED dataset...")  # Debug print
+        print("Loading COMBINED dataset...")
         train_input, train_labels = combined_load(cst.DATA_DIR + "/COMBINED/train.npy", cst.LEN_SMOOTH, horizon, seq_size)
         val_input, val_labels = combined_load(cst.DATA_DIR + "/COMBINED/val.npy", cst.LEN_SMOOTH, horizon, seq_size)
         test_input, test_labels = combined_load(cst.DATA_DIR + "/COMBINED/test.npy", cst.LEN_SMOOTH, horizon, seq_size)
         train_set = Dataset(train_input, train_labels, seq_size)
         val_set = Dataset(val_input, val_labels, seq_size)
         test_set = Dataset(test_input, test_labels, seq_size)
-        test_set.length = 1000  # Limit test set to 1000 samples
+        test_set.length = 1000
         if config.experiment.is_debug:
             train_set.length = 1000
             val_set.length = 1000
@@ -175,7 +177,7 @@ def train(config: Config, trainer: L.Trainer, run=None):
             num_workers=4
         )
         test_loaders = [data_module.test_dataloader()]
-        print("COMBINED dataset loaded successfully...")  # Debug print
+        print("COMBINED dataset loaded successfully...")
     
     else:
         raise ValueError(f"Unknown dataset type: {dataset_type}")
@@ -187,8 +189,7 @@ def train(config: Config, trainer: L.Trainer, run=None):
     print("Train set shape: ", train_input.shape)
     print("Val set shape: ", val_input.shape)
     print("Test set shape: ", test_input.shape)
-    # Dynamically print class distributions
-    class_names = {0: "up", 1: "stat", 2: "down"}  # Define class names, adjust as needed
+    class_names = {0: "up", 1: "stat", 2: "down"}
     train_dist = {class_names[i] if i in class_names else f"class_{i}": count.item() / train_labels.shape[0] for i, count in enumerate(counts_train[1])}
     val_dist = {class_names[i] if i in class_names else f"class_{i}": count.item() / val_labels.shape[0] for i, count in enumerate(counts_val[1])}
     test_dist = {class_names[i] if i in class_names else f"class_{i}": count.item() / test_labels.shape[0] for i, count in enumerate(counts_test[1])}
@@ -198,8 +199,12 @@ def train(config: Config, trainer: L.Trainer, run=None):
     print()
     
     experiment_type = config.experiment.type
+    num_classes = torch.unique(val_labels).size(0) if "EVALUATION" in experiment_type else torch.unique(train_labels).size(0)
+    print(f"Number of classes for {'evaluation' if 'EVALUATION' in experiment_type else 'training'}: {num_classes}")
+    
     if "FINETUNING" in experiment_type or "EVALUATION" in experiment_type:
         if checkpoint_ref != "":
+            print(f"Attempting to load checkpoint from: {checkpoint_path}")
             checkpoint = torch.load(checkpoint_path, map_location=cst.DEVICE, weights_only=True)
             
         print("Loading model from checkpoint: ", config.experiment.checkpoint_reference) 
@@ -228,8 +233,9 @@ def train(config: Config, trainer: L.Trainer, run=None):
                 num_layers=num_layers,
                 num_features=train_input.shape[1],
                 dataset_type=dataset_type,
+                num_classes=num_classes,
                 map_location=cst.DEVICE,
-                )
+            )
         elif model_type == "TLOB":
             model = Engine.load_from_checkpoint(
                 checkpoint_path,
@@ -248,9 +254,10 @@ def train(config: Config, trainer: L.Trainer, run=None):
                 dataset_type=dataset_type,
                 num_heads=checkpoint["hyper_parameters"]["num_heads"],
                 is_sin_emb=checkpoint["hyper_parameters"]["is_sin_emb"],
+                num_classes=num_classes,
                 map_location=cst.DEVICE,
                 len_test_dataloader=len(test_loaders[0])
-                )
+            )
         elif model_type == "BINCTABL":
             model = Engine.load_from_checkpoint(
                 checkpoint_path, 
@@ -265,9 +272,10 @@ def train(config: Config, trainer: L.Trainer, run=None):
                 dir_ckpt=dir_ckpt,
                 num_features=train_input.shape[1],
                 dataset_type=dataset_type,
+                num_classes=num_classes,
                 map_location=cst.DEVICE,
                 len_test_dataloader=len(test_loaders[0])
-                )
+            )
         elif model_type == "DEEPLOB":
             model = Engine.load_from_checkpoint(
                 checkpoint_path, 
@@ -282,9 +290,10 @@ def train(config: Config, trainer: L.Trainer, run=None):
                 dir_ckpt=dir_ckpt,
                 num_features=train_input.shape[1],
                 dataset_type=dataset_type,
+                num_classes=num_classes,
                 map_location=cst.DEVICE,
                 len_test_dataloader=len(test_loaders[0])
-                )
+            )
               
     else:
         if model_type == cst.ModelType.MLPLOB:
@@ -302,6 +311,7 @@ def train(config: Config, trainer: L.Trainer, run=None):
                 num_layers=config.model.hyperparameters_fixed["num_layers"],
                 num_features=train_input.shape[1],
                 dataset_type=dataset_type,
+                num_classes=num_classes,
                 len_test_dataloader=len(test_loaders[0])
             )
         elif model_type == cst.ModelType.TLOB:
@@ -321,6 +331,7 @@ def train(config: Config, trainer: L.Trainer, run=None):
                 dataset_type=dataset_type,
                 num_heads=config.model.hyperparameters_fixed["num_heads"],
                 is_sin_emb=config.model.hyperparameters_fixed["is_sin_emb"],
+                num_classes=num_classes,
                 len_test_dataloader=len(test_loaders[0])
             )
         elif model_type == cst.ModelType.BINCTABL:
@@ -336,6 +347,7 @@ def train(config: Config, trainer: L.Trainer, run=None):
                 dir_ckpt=config.experiment.dir_ckpt,
                 num_features=train_input.shape[1],
                 dataset_type=dataset_type,
+                num_classes=num_classes,
                 len_test_dataloader=len(test_loaders[0])
             )
         elif model_type == cst.ModelType.DEEPLOB:
@@ -351,6 +363,7 @@ def train(config: Config, trainer: L.Trainer, run=None):
                 dir_ckpt=config.experiment.dir_ckpt,
                 num_features=train_input.shape[1],
                 dataset_type=dataset_type,
+                num_classes=num_classes,
                 len_test_dataloader=len(test_loaders[0])
             )
     
@@ -360,9 +373,9 @@ def train(config: Config, trainer: L.Trainer, run=None):
     if "TRAINING" in experiment_type or "FINETUNING" in experiment_type:
         trainer.fit(model, train_dataloader, val_dataloader)
         best_model_path = model.last_path_ckpt
-        print(" Лучший путь к модели: ", best_model_path) 
+        print("Best model path: ", best_model_path) 
         try:
-            best_model = Engine.load_from_checkpoint(best_model_path, map_location=cst.DEVICE)
+            best_model = Engine.load_from_checkpoint(best_model_path, map_location=cst.DEVICE, num_classes=num_classes)
         except: 
             print("no checkpoints has been saved, selecting the last model")
             best_model = model
@@ -376,7 +389,7 @@ def train(config: Config, trainer: L.Trainer, run=None):
                 run.log({f"f1 FI_2010 ": output[0]["f1_score"]}, commit=False)
             elif run is not None and dataset_type == "COMBINED":
                 run.log({f"f1 COMBINED best": output[0]["f1_score"]}, commit=False)
-    else:  # EVALUATION block
+    else:
         for i in range(len(test_loaders)):
             test_dataloader = test_loaders[i]
             output = trainer.test(model, test_dataloader)
@@ -387,7 +400,6 @@ def train(config: Config, trainer: L.Trainer, run=None):
             elif run is not None and dataset_type == "COMBINED":
                 run.log({f"f1 COMBINED best": output[0]["f1_score"]}, commit=False)
 
-            # Custom evaluation and logging for COMBINED dataset
             if dataset_type == "COMBINED" and run is not None:
                 model.eval()
                 all_preds = []
@@ -406,18 +418,15 @@ def train(config: Config, trainer: L.Trainer, run=None):
                         total_loss += loss.item() * inputs.size(0)
                         total_samples += inputs.size(0)
 
-                # Compute additional metrics
                 accuracy = sum(1 for p, l in zip(all_preds, all_labels) if p == l) / len(all_labels)
                 loss = total_loss / total_samples if total_samples > 0 else 0.0
 
-                # Log metrics
                 run.log({
                     "test_accuracy": accuracy,
                     "test_loss": loss,
-                    "f1_COMBINED_best": output[0]["f1_score"]  # Retain existing F1 score
+                    "f1_COMBINED_best": output[0]["f1_score"]
                 }, commit=False)
 
-                # Log confusion matrix
                 cm = confusion_matrix(all_labels, all_preds)
                 run.log({"confusion_matrix": wandb.plot.confusion_matrix(probs=None, y_true=all_labels, preds=all_preds)})
 
@@ -425,7 +434,7 @@ def train(config: Config, trainer: L.Trainer, run=None):
 
 def run_wandb(config: Config, accelerator):
     def wandb_sweep_callback():
-        print("Initializing WandB logger...")  # Debug print
+        print("Initializing WandB logger...")
         wandb_logger = WandbLogger(project=cst.PROJECT_NAME, log_model=False, save_dir=cst.DIR_SAVED_MODEL)
         run_name = None
         if not config.experiment.is_sweep:
@@ -440,20 +449,20 @@ def run_wandb(config: Config, accelerator):
                 else:
                     run_name += str(param[:2]) + "_" + str(value.value) + "_"
 
-        print("Starting WandB run initialization...")  # Debug print
+        print("Starting WandB run initialization...")
         run = wandb.init(project=cst.PROJECT_NAME, name=run_name, entity="")
     
         if config.experiment.is_sweep:
             model_params = run.config
         else:
             model_params = config.model.hyperparameters_fixed
-        wandb_instance_name = f"{config.dataset.type.value}_{config.model.type.value}_horizon_{config.experiment.horizon}_seed_{config.experiment.seed}"  # Updated name
+        wandb_instance_name = f"{config.dataset.type.value}_{config.model.type.value}_horizon_{config.experiment.horizon}_seed_{config.experiment.seed}"
         for param in config.model.hyperparameters_fixed.keys():
             if param in model_params:
                 config.model.hyperparameters_fixed[param] = model_params[param]
                 wandb_instance_name += f"_{param}_{model_params[param]}"
 
-        print(f"Setting run name to {wandb_instance_name}...")  # Debug print
+        print(f"Setting run name to {wandb_instance_name}...")
         run.name = wandb_instance_name
         seq_size = config.model.hyperparameters_fixed["seq_size"]
         horizon = config.experiment.horizon
@@ -465,7 +474,7 @@ def run_wandb(config: Config, accelerator):
         else:
             config.experiment.dir_ckpt = f"{dataset}_seq_size_{seq_size}_horizon_{horizon}_seed_{seed}"
     
-        print("Configuring Trainer...")  # Debug print
+        print("Configuring Trainer...")
         trainer = L.Trainer(
             accelerator=accelerator,
             precision=cst.PRECISION,
@@ -480,7 +489,7 @@ def run_wandb(config: Config, accelerator):
             check_val_every_n_epoch=1,
         )
 
-        print("Logging configuration to WandB...")  # Debug print
+        print("Logging configuration to WandB...")
         run.log({"model": config.model.type.value}, commit=False)
         run.log({"dataset": config.dataset.type.value}, commit=False)
         run.log({"seed": config.experiment.seed}, commit=False)
@@ -495,11 +504,11 @@ def run_wandb(config: Config, accelerator):
                 run.log({"sampling_time": config.dataset.sampling_time}, commit=False)
             elif config.dataset.sampling_type == SamplingType.QUANTITY:
                 run.log({"sampling_quantity": config.dataset.sampling_quantity}, commit=False)
-        print("Calling train function...")  # Debug print
+        print("Calling train function...")
         train(config, trainer, run)
         run.finish()
 
-    return wandb_sweep_callback  # Corrected return statement
+    return wandb_sweep_callback
 
 def sweep_init(config: Config):
     wandb.login("")
