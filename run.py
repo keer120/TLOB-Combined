@@ -22,7 +22,7 @@ from typing import List
 import traceback
 
 # Add safe globals to allow deserialization of checkpoint
-torch.serialization.add_safe_globals([omegaconf.listconfig.ListConfig, omegaconf.base.ContainerMetadata, List, list])
+torch.serialization.add_safe_globals([omegaconf.listconfig.ListConfig, omegaconf.base.ContainerMetadata, List, list, collections.defaultdict])
 
 def run(config: Config, accelerator):
     seq_size = config.model.hyperparameters_fixed["seq_size"]
@@ -58,7 +58,6 @@ def train(config: Config, trainer: L.Trainer, run=None):
     horizon = config.experiment.horizon
     model_type = config.model.type
     checkpoint_ref = config.experiment.checkpoint_reference
-    # Fix checkpoint path to avoid duplication
     checkpoint_ref_clean = checkpoint_ref.replace("data/checkpoints/", "")
     checkpoint_path = os.path.join(cst.DIR_SAVED_MODEL, checkpoint_ref_clean)
     if dataset_type == "FI_2010":
@@ -215,9 +214,9 @@ def train(config: Config, trainer: L.Trainer, run=None):
                 print(f"Checkpoint not found at {checkpoint_path}, initializing new model instead")
             else:
                 try:
+                    torch.serialization.add_safe_globals([omegaconf.listconfig.ListConfig, omegaconf.base.ContainerMetadata, List, list, collections.defaultdict])
                     checkpoint = torch.load(checkpoint_path, map_location=cst.DEVICE, weights_only=True)
                     print(f"Checkpoint loaded successfully with {len(checkpoint)} keys")
-                    # Use checkpoint values for model initialization
                     lr = checkpoint["hyper_parameters"]["lr"]
                     dir_ckpt = checkpoint["hyper_parameters"]["dir_ckpt"]
                     hidden_dim = checkpoint["hyper_parameters"]["hidden_dim"]
@@ -231,7 +230,6 @@ def train(config: Config, trainer: L.Trainer, run=None):
                     is_sin_emb = checkpoint["hyper_parameters"]["is_sin_emb"]
                 except Exception as e:
                     print(f"Checkpoint load failed: {str(e)}, initializing new model instead")
-        # If no checkpoint or loading fails, initialize a new model
         if checkpoint_ref == "" or not os.path.exists(checkpoint_path) or 'checkpoint' not in locals():
             print("Initializing new TLOB model for evaluation")
             model_type = config.model.type
@@ -258,7 +256,6 @@ def train(config: Config, trainer: L.Trainer, run=None):
             else:
                 raise ValueError(f"Unsupported model type {model_type} for new initialization")
         else:
-            # Load model from checkpoint if successful
             print("Loading model from checkpoint: ", config.experiment.checkpoint_reference)
             if model_type == "MLPLOB":
                 model = Engine.load_from_checkpoint(
@@ -337,9 +334,9 @@ def train(config: Config, trainer: L.Trainer, run=None):
                     map_location=cst.DEVICE,
                     len_test_dataloader=len(test_loaders[0])
                 )
-    else:
-        if model_type == cst.ModelType.MLPLOB:
-            model = Engine(
+else:
+    if model_type == cst.ModelType.MLPLOB:
+        model = Engine(
             seq_size=seq_size,
             horizon=horizon,
             max_epochs=config.experiment.max_epochs,
@@ -356,8 +353,8 @@ def train(config: Config, trainer: L.Trainer, run=None):
             num_classes=num_classes,
             len_test_dataloader=len(test_loaders[0])
         )
-        elif model_type == cst.ModelType.TLOB:
-            model = Engine(
+    elif model_type == cst.ModelType.TLOB:
+        model = Engine(
             seq_size=seq_size,
             horizon=horizon,
             max_epochs=config.experiment.max_epochs,
@@ -376,8 +373,8 @@ def train(config: Config, trainer: L.Trainer, run=None):
             num_classes=num_classes,
             len_test_dataloader=len(test_loaders[0])
         )
-        elif model_type == cst.ModelType.BINCTABL:
-            model = Engine(
+    elif model_type == cst.ModelType.BINCTABL:
+        model = Engine(
             seq_size=seq_size,
             horizon=horizon,
             max_epochs=config.experiment.max_epochs,
@@ -392,8 +389,8 @@ def train(config: Config, trainer: L.Trainer, run=None):
             num_classes=num_classes,
             len_test_dataloader=len(test_loaders[0])
         )
-        elif model_type == cst.ModelType.DEEPLOB:
-            model = Engine(
+    elif model_type == cst.ModelType.DEEPLOB:
+        model = Engine(
             seq_size=seq_size,
             horizon=horizon,
             max_epochs=config.experiment.max_epochs,

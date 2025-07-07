@@ -1,20 +1,10 @@
-import random
-from lightning import LightningModule
-import numpy as np
-from sklearn.metrics import classification_report, precision_recall_curve
-from torch import nn
-import os
+import lightning as L
 import torch
-import matplotlib.pyplot as plt
-import wandb
-import seaborn as sns
-from lion_pytorch import Lion
-from torch_ema import ExponentialMovingAverage
-from utils.utils_model import pick_model
-import constants as cst
-from scipy.stats import mode
+import torch.nn as nn
+from models.tlob import TLOB
+from constants import DatasetType
 
-class Engine(LightningModule):
+class Engine(L.LightningModule):
     def __init__(
         self,
         seq_size,
@@ -26,260 +16,75 @@ class Engine(LightningModule):
         lr,
         optimizer,
         dir_ckpt,
+        hidden_dim,
+        num_layers,
         num_features,
         dataset_type,
-        num_classes=3,
-        num_layers=4,
-        hidden_dim=256,
-        num_heads=8,
+        num_heads=1,
         is_sin_emb=True,
+        num_classes=3,
         len_test_dataloader=None,
     ):
         super().__init__()
-        self.seq_size = seq_size
-        self.dataset_type = dataset_type
-        self.horizon = horizon
-        self.max_epochs = max_epochs
-        self.model_type = model_type
-        self.num_heads = num_heads
-        self.is_wandb = is_wandb
-        self.len_test_dataloader = len_test_dataloader
+        self.save_hyperparameters()
+        self.model = TLOB(
+            d_model=hidden_dim,
+            nhead=num_heads,
+            num_layers=num_layers,
+            seq_length=seq_size,
+            is_sin_emb=is_sin_emb,
+        )
+        self.linear_projection = nn.Linear(num_features, hidden_dim)  # Project features to hidden_dim
+        self.fc = nn.Linear(hidden_dim, num_classes)
+        self.criterion = nn.CrossEntropyLoss()
         self.lr = lr
         self.optimizer = optimizer
         self.dir_ckpt = dir_ckpt
-        self.hidden_dim = hidden_dim
-        self.num_layers = num_layers
-        self.num_features = num_features
-        self.num_classes = num_classes
+        self.is_wandb = is_wandb
         self.experiment_type = experiment_type
-        self.model = pick_model(
-            model_type=model_type,
-            hidden_dim=hidden_dim,
-            num_layers=num_layers,
-            seq_size=seq_size,
-            num_features=num_features,
-            num_heads=num_heads,
-            is_sin_emb=is_sin_emb,
-            dataset_type=dataset_type,
-            num_classes=num_classes
-        )
-        self.ema = ExponentialMovingAverage(self.parameters(), decay=0.999)
-        self.ema.to(cst.DEVICE)
-        self.loss_function = nn.CrossEntropyLoss()
-        self.train_losses = []
-        self.val_losses = []
-        self.test_losses = []
-        self.test_targets = []
-        self.test_predictions = []
-        self.test_proba = []
-        self.val_targets = []
-        self.val_loss = np.inf
-        self.val_predictions = []
-        self.min_loss = np.inf
-        self.save_hyperparameters()
-        self.last_path_ckpt = None
-        self.first_test = True
-        self.test_mid_prices = []
+        self.dataset_type = dataset_type
+        self.len_test_dataloader = len_test_dataloader
 
     def forward(self, x, batch_idx=None):
-        output = self.model(x)
+        # Ensure input is in the correct shape for transformer: (batch_size, seq_length, embedding_dim)
+        batch_size, seq_length, num_features = x.size()
+        x = self.linear_projection(x)  # Project to (batch_size, seq_length, hidden_dim)
+        output = self.model(x)  # Pass through TLOB model
+        output = self.fc(output[:, -1, :])  # Take last time step and classify
         return output
-
-    def loss(self, y_hat, y):
-        return self.loss_function(y_hat, y)
 
     def training_step(self, batch, batch_idx):
         x, y = batch
-        y_hat = self.forward(x)
-        batch_loss = self.loss(y_hat, y)
-        batch_loss_mean = torch.mean(batch_loss)
-        self.train_losses.append(batch_loss_mean.item())
-        self.ema.update()
-        if batch_idx % 1000 == 0:
-            print(f'train loss: {sum(self.train_losses) / len(self.train_losses)}')
-        return batch_loss_mean
-
-    def on_train_epoch_start(self) -> None:
-        print(f'learning rate: {self.optimizer.param_groups[0]["lr"]}')
+        y_hat = self(x, batch_idx)
+        loss = self.criterion(y_hat, y)
+        self.log("train_loss", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
+        return loss
 
     def validation_step(self, batch, batch_idx):
         x, y = batch
-        with self.ema.average_parameters():
-            y_hat = self.forward(x)
-            batch_loss = self.loss(y_hat, y)
-            self.val_targets.append(y.cpu().numpy())
-            self.val_predictions.append(y_hat.argmax(dim=1).cpu().numpy())
-            batch_loss_mean = torch.mean(batch_loss)
-            self.val_losses.append(batch_loss_mean.item())
-        return batch_loss_mean
+        y_hat = self(x, batch_idx)
+        loss = self.criterion(y_hat, y)
+        self.log("val_loss", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
+        return loss
 
     def test_step(self, batch, batch_idx):
         x, y = batch
-        mid_prices = ((x[:, 0, 0] + x[:, 0, 2]) // 2).cpu().numpy().flatten()
-        self.test_mid_prices.append(mid_prices)
-        if self.experiment_type == "TRAINING":
-            with self.ema.average_parameters():
-                y_hat = self.forward(x, batch_idx)
-                batch_loss = self.loss(y_hat, y)
-                self.test_targets.append(y.cpu().numpy())
-                self.test_predictions.append(y_hat.argmax(dim=1).cpu().numpy())
-                self.test_proba.append(torch.softmax(y_hat, dim=1)[:, 1].cpu().numpy())
-                batch_loss_mean = torch.mean(batch_loss)
-                self.test_losses.append(batch_loss_mean.item())
-        else:
-            y_hat = self.forward(x, batch_idx)
-            batch_loss = self.loss(y_hat, y)
-            self.test_targets.append(y.cpu().numpy())
-            self.test_predictions.append(y_hat.argmax(dim=1).cpu().numpy())
-            self.test_proba.append(torch.softmax(y_hat, dim=1)[:, 1].cpu().numpy())
-            batch_loss_mean = torch.mean(batch_loss)
-            self.test_losses.append(batch_loss_mean.item())
-        return batch_loss_mean
-
-    def on_validation_epoch_start(self) -> None:
-        loss = sum(self.train_losses) / len(self.train_losses)
-        self.train_losses = []
-        self.current_train_loss = loss
-        print(f'Train loss on epoch {self.current_epoch}: {loss}')
-
-    def on_validation_epoch_end(self) -> None:
-        self.val_loss = sum(self.val_losses) / len(self.val_losses)
-        self.val_losses = []
-
-        if self.val_loss < self.min_loss:
-            if self.val_loss - self.min_loss > -0.002:
-                self.optimizer.param_groups[0]["lr"] /= 2
-            self.min_loss = self.val_loss
-            self.model_checkpointing(self.val_loss)
-        else:
-            self.optimizer.param_groups[0]["lr"] /= 2
-
-        self.log_losses_to_wandb(self.current_train_loss, self.val_loss)
-        self.log("val_loss", self.val_loss)
-        print(f'Validation loss on epoch {self.current_epoch}: {self.val_loss}')
-        targets = np.concatenate(self.val_targets)
-        predictions = np.concatenate(self.val_predictions)
-        class_report = classification_report(targets, predictions, digits=4, output_dict=True)
-        print(classification_report(targets, predictions, digits=4))
-        self.log("val_f1_score", class_report["macro avg"]["f1-score"])
-        self.log("val_accuracy", class_report["accuracy"])
-        self.log("val_precision", class_report["macro avg"]["precision"])
-        self.log("val_recall", class_report["macro avg"]["recall"])
-        self.val_targets = []
-        self.val_predictions = []
-
-    def log_losses_to_wandb(self, train_loss, val_loss):
-        if self.is_wandb:
-            wandb.log({
-                "losses": {
-                    "train": train_loss,
-                    "validation": val_loss
-                },
-                "epoch": self.global_step
-            })
-
-    def on_test_epoch_end(self) -> None:
-        targets = np.concatenate(self.test_targets)
-        predictions = np.concatenate(self.test_predictions)
-        predictions_path = os.path.join(cst.DIR_SAVED_MODEL, str(self.model_type), self.dir_ckpt, "predictions")
-        np.save(predictions_path, predictions)
-        class_report = classification_report(targets, predictions, digits=4, output_dict=True)
-        print(classification_report(targets, predictions, digits=4))
-        self.log("test_loss", sum(self.test_losses) / len(self.test_losses))
-        self.log("f1_score", class_report["macro avg"]["f1-score"])
-        self.log("accuracy", class_report["accuracy"])
-        self.log("precision", class_report["macro avg"]["precision"])
-        self.log("recall", class_report["macro avg"]["recall"])
-        self.test_targets = []
-        self.test_predictions = []
-        self.test_losses = []
-        self.first_test = False
-        test_proba = np.concatenate(self.test_proba)
-        precision, recall, _ = precision_recall_curve(targets, test_proba, pos_label=1)
-        self.plot_pr_curves(recall, precision, self.is_wandb)
+        y_hat = self.forward(x, batch_idx)
+        loss = self.criterion(y_hat, y)
+        _, predicted = torch.max(y_hat.data, 1)
+        correct = (predicted == y).sum().item()
+        accuracy = correct / y.size(0)
+        self.log("test_loss", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
+        self.log("accuracy", accuracy, on_step=True, on_epoch=True, prog_bar=True, logger=True)
+        from sklearn.metrics import f1_score
+        f1 = f1_score(y.cpu(), predicted.cpu(), average='weighted')
+        self.log("f1_score", f1, on_step=True, on_epoch=True, prog_bar=True, logger=True)
+        return {"loss": loss, "f1_score": f1}
 
     def configure_optimizers(self):
-        if self.model_type == "DEEPLOB":
-            eps = 1
+        if self.optimizer == "lion":
+            from lion_pytorch import Lion
+            optimizer = Lion(self.parameters(), lr=self.lr)
         else:
-            eps = 1e-8
-        if self.optimizer == 'Adam':
-            self.optimizer = torch.optim.Adam(self.parameters(), lr=self.lr, eps=eps)
-        elif self.optimizer == 'SGD':
-            self.optimizer = torch.optim.SGD(self.parameters(), lr=self.lr, momentum=0.9)
-        elif self.optimizer == 'Lion':
-            self.optimizer = Lion(self.parameters(), lr=self.lr)
-        return self.optimizer
-
-    def _define_log_metrics(self):
-        wandb.define_metric("val_loss", summary="min")
-
-    def model_checkpointing(self, loss):
-        if self.last_path_ckpt is not None:
-            os.remove(self.last_path_ckpt)
-        filename_ckpt = ("val_loss=" + str(round(loss, 3)) +
-                         "_epoch=" + str(self.current_epoch) +
-                         ".pt")
-        path_ckpt = os.path.join(cst.DIR_SAVED_MODEL, str(self.model_type), self.dir_ckpt, "pt", filename_ckpt)
-
-        with self.ema.average_parameters():
-            self.trainer.save_checkpoint(path_ckpt)
-
-            onnx_dir = os.path.join(cst.DIR_SAVED_MODEL, str(self.model_type), self.dir_ckpt, "onnx")
-            os.makedirs(onnx_dir, exist_ok=True)
-
-            onnx_filename = ("val_loss=" + str(round(loss, 3)) +
-                             "_epoch=" + str(self.current_epoch) +
-                             ".onnx")
-            onnx_path = os.path.join(onnx_dir, onnx_filename)
-
-            dummy_input = torch.randn(1, self.seq_size, self.num_features, device=self.device)
-
-            try:
-                torch.onnx.export(
-                    self.model,
-                    dummy_input,
-                    onnx_path,
-                    export_params=True,
-                    opset_version=12,
-                    do_constant_folding=True,
-                    input_names=['input'],
-                    output_names=['output'],
-                    dynamic_axes={
-                        'input': {0: 'batch_size'},
-                        'output': {0: 'batch_size'}
-                    }
-                )
-            except Exception as e:
-                print(f"Failed to export ONNX model: {e}")
-
-        self.last_path_ckpt = path_ckpt
-
-    def plot_pr_curves(self, recall, precision, is_wandb):
-        plt.figure(figsize=(20, 10), dpi=80)
-        plt.plot(recall, precision, label='Precision-Recall', color='black')
-        plt.xlabel('Recall')
-        plt.ylabel('Precision')
-        plt.title('Precision-Recall Curve')
-        if is_wandb:
-            wandb.log({f"precision_recall_curve_{self.dataset_type}": wandb.Image(plt)})
-        plt.savefig(cst.DIR_SAVED_MODEL + "/" + str(self.model_type) + "/" + f"precision_recall_curve_{self.dataset_type}.svg")
-        plt.close()
-
-def compute_most_attended(att_feature):
-    att_feature = np.stack(att_feature)
-    att_feature = att_feature.transpose(1, 3, 0, 2, 4)
-    indices = att_feature[:, :, :, 1]
-    values = att_feature[:, :, :, 0]
-    most_frequent_indices = np.zeros((indices.shape[0], indices.shape[1], indices.shape[3]), dtype=int)
-    average_values = np.zeros((indices.shape[0], indices.shape[1], indices.shape[3]))
-    for layer in range(indices.shape[0]):
-        for head in range(indices.shape[1]):
-            for seq in range(indices.shape[3]):
-                current_indices = indices[layer, head, :, seq]
-                current_values = values[layer, head, :, seq]
-                most_frequent_index = mode(current_indices, keepdims=False)[0]
-                most_frequent_indices[layer, head, seq] = most_frequent_index
-                avg_value = np.mean(current_values[current_indices == most_frequent_index])
-                average_values[layer, head, seq] = avg_value
-    return most_frequent_indices, average_values
+            optimizer = torch.optim.Adam(self.parameters(), lr=self.lr)
+        return optimizer
