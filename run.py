@@ -473,14 +473,14 @@ def train(config: Config, trainer: L.Trainer, run=None):
 
                 print(f"Evaluation for COMBINED - Accuracy: {accuracy}, Loss: {loss}, F1: {output[0]['f1_score']}")
 
-    def run_wandb(config: Config, accelerator):
-        def wandb_sweep_callback():
-            print("Initializing WandB logger...")
-            wandb_logger = WandbLogger(project=cst.PROJECT_NAME, log_model=False, save_dir=cst.DIR_SAVED_MODEL)
-            run_name = None
-            if not config.experiment.is_sweep:
-                run_name = ""
-                for param in config.model.keys():
+def run_wandb(config: Config, accelerator):
+    def wandb_sweep_callback():
+        print("Initializing WandB logger...")
+        wandb_logger = WandbLogger(project=cst.PROJECT_NAME, log_model=False, save_dir=cst.DIR_SAVED_MODEL)
+        run_name = None
+        if not config.experiment.is_sweep:
+            run_name = ""
+            for param in config.model.keys():
                     value = config.model[param]
                     if param == "hyperparameters_sweep":
                         continue
@@ -548,6 +548,7 @@ def train(config: Config, trainer: L.Trainer, run=None):
             print("Calling train function...")
             train(config, trainer, run)
             run.finish()
+            return
 
         return wandb_sweep_callback
 
