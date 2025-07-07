@@ -13,7 +13,15 @@ class CombinedDataBuilder:
         self.sampling_type = sampling_type
         self.sampling_time = sampling_time
         self.sampling_quantity = sampling_quantity
-        self.data_path = os.path.join(self.data_dir, 'combined_output_week_20.csv')  # Define data path here
+        # Default path with fallback
+        self.data_path = os.path.join(self.data_dir, 'combined_output_week_20.csv')
+        if not os.path.exists(self.data_path):
+            alternative_path = '/content/combined_output_week_20.csv'
+            if os.path.exists(alternative_path):
+                self.data_path = alternative_path
+                print(f"Using alternative data path: {self.data_path}")
+            else:
+                raise FileNotFoundError(f"Data file not found at: {self.data_path} or {alternative_path}. Please upload 'combined_output_week_20.csv' to one of these locations and re-run.")
 
     def prepare_save_datasets(self):
         # Load and preprocess the dataset
