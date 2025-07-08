@@ -47,11 +47,21 @@ class CombinedDataBuilder:
         std_price = np.std(df[bid_price_cols + ask_price_cols].values)
         mean_size = np.mean(df[bid_quantity_cols + ask_quantity_cols].values)
         std_size = np.std(df[bid_quantity_cols + ask_quantity_cols].values)
+        print("mean_price:", mean_price, "std_price:", std_price)
+        print("mean_size:", mean_size, "std_size:", std_size)
+        if std_price == 0:
+            print("WARNING: std_price is zero!")
+            std_price = 1.0
+        if std_size == 0:
+            print("WARNING: std_size is zero!")
+            std_size = 1.0
         
         features[:, :N_LOB_LEVELS] = (features[:, :N_LOB_LEVELS] - mean_price) / std_price  # Bid prices
         features[:, N_LOB_LEVELS:2*N_LOB_LEVELS] = (features[:, N_LOB_LEVELS:2*N_LOB_LEVELS] - mean_size) / std_size  # Bid quantities
         features[:, 2*N_LOB_LEVELS:3*N_LOB_LEVELS] = (features[:, 2*N_LOB_LEVELS:3*N_LOB_LEVELS] - mean_price) / std_price  # Ask prices
         features[:, 3*N_LOB_LEVELS:] = (features[:, 3*N_LOB_LEVELS:] - mean_size) / std_size  # Ask quantities
+        if np.isnan(features).any() or np.isinf(features).any():
+            print("WARNING: features contain nan or inf after normalization!")
         
         # Apply smoothing (moving average) with correct length
         n_samples, n_features = features.shape

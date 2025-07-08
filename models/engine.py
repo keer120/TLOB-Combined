@@ -47,6 +47,9 @@ class Engine(L.LightningModule):
         self.len_test_dataloader = len_test_dataloader
 
     def forward(self, x):
+        print("Input to Engine.forward:", x.shape)
+        if torch.isnan(x).any() or torch.isinf(x).any():
+            print("WARNING: Input to Engine.forward contains nan or inf!")
         # Ensure input is 3D: (batch_size, seq_length, num_features)
         if x.dim() == 4 and x.size(1) == 1:
             x = x.squeeze(1)
@@ -55,16 +58,19 @@ class Engine(L.LightningModule):
             x = x.view(x.size(0), -1, x.size(3))
         if x.dim() != 3:
             raise ValueError(f"Input to Engine.forward must be 3D, got shape {x.shape}")
-
-        # Ensure input sequence length matches model's expected seq_length
         if x.size(1) > self.model.seq_length:
             x = x[:, :self.model.seq_length, :]
         elif x.size(1) < self.model.seq_length:
             raise ValueError(f"Input sequence too short: {x.size(1)} < {self.model.seq_length}")
-
-        x = self.linear_projection(x)  # Project to (batch_size, seq_length, hidden_dim)
-        output = self.model(x)         # Pass through TLOB model
-        output = self.fc(output[:, -1, :])  # Take last time step and classify
+        x = self.linear_projection(x)
+        if torch.isnan(x).any() or torch.isinf(x).any():
+            print("WARNING: After linear_projection: nan or inf detected!")
+        output = self.model(x)
+        if torch.isnan(output).any() or torch.isinf(output).any():
+            print("WARNING: After transformer: nan or inf detected!")
+        output = self.fc(output[:, -1, :])
+        if torch.isnan(output).any() or torch.isinf(output).any():
+            print("WARNING: After fc: nan or inf detected!")
         return output
 
     def training_step(self, batch, batch_idx):
