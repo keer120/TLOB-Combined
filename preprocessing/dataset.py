@@ -28,7 +28,10 @@ class Dataset(data.Dataset):
 
     def __getitem__(self, i):
         input = self.x[i:i+self.seq_size, :].contiguous()
-        return input, self.y[i]
+        label = self.y[i]
+        if isinstance(label, torch.Tensor):
+            label = label.clone().contiguous()
+        return input, label
     
 
 class DataModule(pl.LightningDataModule):
