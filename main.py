@@ -16,6 +16,16 @@ from preprocessing.btc import BTCDataBuilder
 from preprocessing.combined import CombinedDataBuilder
 from constants import DatasetType
 from constants import SamplingType
+from preprocessing.dataset import Dataset as PreprocessingDataset
+from config.config import Dataset as ConfigDataset
+setattr(PreprocessingDataset, "FI_2010", FI_2010)
+setattr(PreprocessingDataset, "LOBSTER", LOBSTER)
+setattr(PreprocessingDataset, "BTC", BTC)
+setattr(PreprocessingDataset, "COMBINED", COMBINED)
+setattr(ConfigDataset, "FI_2010", FI_2010)
+setattr(ConfigDataset, "LOBSTER", LOBSTER)
+setattr(ConfigDataset, "BTC", BTC)
+setattr(ConfigDataset, "COMBINED", COMBINED)
 
 import os
 os.environ["CUDA_LAUNCH_BLOCKING"] = "1"

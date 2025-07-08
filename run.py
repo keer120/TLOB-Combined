@@ -35,6 +35,17 @@ setattr(Dataset, "COMBINED", COMBINED)
 # print("Registered Dataset.FI_2010:", hasattr(Dataset, "FI_2010"))
 # print("Registered Model.TLOB:", hasattr(Model, "TLOB"))
 
+from preprocessing.dataset import Dataset as PreprocessingDataset
+from config.config import Dataset as ConfigDataset
+setattr(PreprocessingDataset, "FI_2010", FI_2010)
+setattr(PreprocessingDataset, "LOBSTER", LOBSTER)
+setattr(PreprocessingDataset, "BTC", BTC)
+setattr(PreprocessingDataset, "COMBINED", COMBINED)
+setattr(ConfigDataset, "FI_2010", FI_2010)
+setattr(ConfigDataset, "LOBSTER", LOBSTER)
+setattr(ConfigDataset, "BTC", BTC)
+setattr(ConfigDataset, "COMBINED", COMBINED)
+
 def run(config: Config, accelerator):
     seq_size = config.model.hyperparameters_fixed["seq_size"]
     dataset = config.dataset.type.value
