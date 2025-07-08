@@ -33,7 +33,7 @@ class Engine(L.LightningModule):
             num_layers=num_layers,
             seq_length=seq_size,
             is_sin_emb=is_sin_emb,
-        )
+        ).to(cst.DEVICE)
         self.linear_projection = nn.Linear(num_features, hidden_dim)  # Project features to hidden_dim
         self.fc = nn.Linear(hidden_dim, num_classes)
         self.criterion = nn.CrossEntropyLoss()
@@ -45,8 +45,8 @@ class Engine(L.LightningModule):
         self.dataset_type = dataset_type
         self.len_test_dataloader = len_test_dataloader
 
-    def forward(self, x, batch_idx=None):
-        x = x.to(self.device)  # Ensure input is on the same device as the model
+    def forward(self, x):
+        x = x.to(self.device)
         print(f"Input to Engine.forward: {x.shape}")
         # Ensure input is 3D: (batch_size, seq_length, num_features)
         if x.dim() == 4 and x.size(1) == 1:
@@ -67,10 +67,14 @@ class Engine(L.LightningModule):
         x = self.linear_projection(x)  # Project to (batch_size, seq_length, hidden_dim)
         output = self.model(x)         # Pass through TLOB model
         output = self.fc(output[:, -1, :])  # Take last time step and classify
+        print("inputs device:", x.device)
+        print("labels device:", output.device)
+        print("outputs device:", output.device)
         return output.to(self.device)
 
     def training_step(self, batch, batch_idx):
         x, y = batch
+        x, y = x.to(cst.DEVICE), y.to(cst.DEVICE)
         y_hat = self(x)
         loss = self.criterion(y_hat, y)
         self.log("train_loss", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
@@ -78,6 +82,7 @@ class Engine(L.LightningModule):
 
     def validation_step(self, batch, batch_idx):
         x, y = batch
+        x, y = x.to(cst.DEVICE), y.to(cst.DEVICE)
         y_hat = self(x)
         loss = self.criterion(y_hat, y)
         self.log("val_loss", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
@@ -86,6 +91,7 @@ class Engine(L.LightningModule):
     def test_step(self, batch, batch_idx):
         try:
             x, y = batch
+            x, y = x.to(cst.DEVICE), y.to(cst.DEVICE)
             y = y - y.min()
             y_hat = self(x)
             print(f"test_step: y min={y.min().item()}, max={y.max().item()}, num_classes={self.fc.out_features}")
