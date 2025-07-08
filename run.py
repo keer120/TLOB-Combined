@@ -353,8 +353,7 @@ def train(config: Config, trainer: L.Trainer, run=None):
                     elif run is not None and dataset_type == "FI_2010":
                         run.log({f"f1 FI_2010 ": outputs[0]["f1_score"]}, commit=False)
                     elif run is not None and dataset_type == "COMBINED":
-                        # print("Test output:", outputs)
-                        # Compute metrics manually here if needed
+                        pass  # Compute metrics manually here if needed
             except Exception as e:
                 print("Exception in test DataLoader loop:", e)
                 import traceback; traceback.print_exc()
