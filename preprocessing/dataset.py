@@ -27,7 +27,7 @@ class Dataset(data.Dataset):
         return self.length
 
     def __getitem__(self, i):
-        input = self.x[i:i+self.seq_size, :]
+        input = self.x[i:i+self.seq_size, :].contiguous()
         return input, self.y[i]
     
 
