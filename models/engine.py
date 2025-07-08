@@ -47,7 +47,6 @@ class Engine(L.LightningModule):
         self.len_test_dataloader = len_test_dataloader
 
     def forward(self, x):
-        print(f"Input to Engine.forward: {x.shape}")
         # Ensure input is 3D: (batch_size, seq_length, num_features)
         if x.dim() == 4 and x.size(1) == 1:
             x = x.squeeze(1)
@@ -59,7 +58,6 @@ class Engine(L.LightningModule):
 
         # Ensure input sequence length matches model's expected seq_length
         if x.size(1) > self.model.seq_length:
-            print(f"Warning: input seq_length {x.size(1)} > model.seq_length {self.model.seq_length}, slicing input.")
             x = x[:, :self.model.seq_length, :]
         elif x.size(1) < self.model.seq_length:
             raise ValueError(f"Input sequence too short: {x.size(1)} < {self.model.seq_length}")
@@ -67,9 +65,6 @@ class Engine(L.LightningModule):
         x = self.linear_projection(x)  # Project to (batch_size, seq_length, hidden_dim)
         output = self.model(x)         # Pass through TLOB model
         output = self.fc(output[:, -1, :])  # Take last time step and classify
-        print("inputs device:", x.device)
-        print("labels device:", output.device)
-        print("outputs device:", output.device)
         return output
 
     def training_step(self, batch, batch_idx):
@@ -91,8 +86,6 @@ class Engine(L.LightningModule):
             x, y = batch
             y = y - y.min()
             y_hat = self(x)
-            print(f"test_step: y min={y.min().item()}, max={y.max().item()}, num_classes={self.fc.out_features}")
-            print(f"Unique labels: {torch.unique(y)}")
             loss = self.criterion(y_hat, y)
             _, predicted = torch.max(y_hat.data, 1)
             correct = (predicted == y).sum().item()
@@ -105,7 +98,7 @@ class Engine(L.LightningModule):
             return {"loss": loss, "f1_score": f1}
         except Exception as e:
             print(f"Exception in test_step: {e}")
-            return {"loss": torch.tensor(0.0, device=self.device), "f1_score": 0.0}
+            return {"loss": torch.tensor(0.0), "f1_score": 0.0}
 
     def configure_optimizers(self):
         if self.optimizer == "lion":
