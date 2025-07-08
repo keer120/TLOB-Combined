@@ -472,14 +472,21 @@ def train(config: Config, trainer: L.Trainer, run=None):
                         f1 = f1_score(all_labels, all_preds, average='weighted')
                         avg_loss = total_loss / total_samples if total_samples > 0 else 0.0
 
-                        run.log({
-                            "test_accuracy": accuracy,
-                            "test_loss": avg_loss,
-                            "f1_COMBINED_best": f1
-                        }, commit=False)
+                        # Log a table of predictions and true labels to WandB (first 100 samples)
+                        if run is not None:
+                            table = wandb.Table(columns=["predicted", "true"])
+                            for pred, true in zip(all_preds[:100], all_labels[:100]):
+                                table.add_data(pred, true)
+                            run.log({"predictions_table": table})
 
-                        cm = confusion_matrix(all_labels, all_preds)
-                        run.log({"confusion_matrix": wandb.plot.confusion_matrix(probs=None, y_true=all_labels, preds=all_preds)})
+                            run.log({
+                                "test_accuracy": accuracy,
+                                "test_loss": avg_loss,
+                                "f1_COMBINED_best": f1
+                            }, commit=False)
+
+                            cm = confusion_matrix(all_labels, all_preds)
+                            run.log({"confusion_matrix": wandb.plot.confusion_matrix(probs=None, y_true=all_labels, preds=all_preds)})
 
                         print(f"Evaluation for COMBINED - Accuracy: {accuracy}, Loss: {avg_loss}, F1: {f1}")
     else:
@@ -522,7 +529,13 @@ def train(config: Config, trainer: L.Trainer, run=None):
                 f1 = f1_score(all_labels, all_preds, average='weighted')
                 avg_loss = total_loss / total_samples if total_samples > 0 else 0.0
 
+                # Log a table of predictions and true labels to WandB (first 100 samples)
                 if run is not None:
+                    table = wandb.Table(columns=["predicted", "true"])
+                    for pred, true in zip(all_preds[:100], all_labels[:100]):
+                        table.add_data(pred, true)
+                    run.log({"predictions_table": table})
+
                     run.log({
                         "test_accuracy": accuracy,
                         "test_loss": avg_loss,
