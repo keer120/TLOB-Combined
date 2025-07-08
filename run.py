@@ -22,6 +22,7 @@ from sklearn.metrics import confusion_matrix
 from typing import List
 import traceback
 import collections
+from sklearn.metrics import f1_score, accuracy_score
 
 # Add safe globals to allow deserialization of checkpoint
 torch.serialization.add_safe_globals([omegaconf.listconfig.ListConfig, omegaconf.base.ContainerMetadata, List, list, collections.defaultdict, dict])
@@ -466,19 +467,21 @@ def train(config: Config, trainer: L.Trainer, run=None):
                             total_loss += loss.item() * inputs.size(0)
                             total_samples += inputs.size(0)
 
-                        accuracy = sum(1 for p, l in zip(all_preds, all_labels) if p == l) / len(all_labels)
-                        loss = total_loss / total_samples if total_samples > 0 else 0.0
+                        # Compute metrics manually
+                        accuracy = accuracy_score(all_labels, all_preds)
+                        f1 = f1_score(all_labels, all_preds, average='weighted')
+                        avg_loss = total_loss / total_samples if total_samples > 0 else 0.0
 
                         run.log({
                             "test_accuracy": accuracy,
-                            "test_loss": loss,
-                            "f1_COMBINED_best": outputs[0]["f1_score"]
+                            "test_loss": avg_loss,
+                            "f1_COMBINED_best": f1
                         }, commit=False)
 
                         cm = confusion_matrix(all_labels, all_preds)
                         run.log({"confusion_matrix": wandb.plot.confusion_matrix(probs=None, y_true=all_labels, preds=all_preds)})
 
-                        print(f"Evaluation for COMBINED - Accuracy: {accuracy}, Loss: {loss}, F1: {outputs[0]['f1_score']}")
+                        print(f"Evaluation for COMBINED - Accuracy: {accuracy}, Loss: {avg_loss}, F1: {f1}")
     else:
         for i in range(len(test_loaders)):
             test_dataloader = test_loaders[i]
@@ -494,10 +497,7 @@ def train(config: Config, trainer: L.Trainer, run=None):
                         run.log({f"f1 FI_2010 ": outputs[0]["f1_score"]}, commit=False)
                     elif run is not None and dataset_type == "COMBINED":
                         print("Test output:", outputs)
-                        if outputs and "f1_score" in outputs[0]:
-                            run.log({f"f1 COMBINED best": outputs[0]["f1_score"]}, commit=False)
-                        else:
-                            print("Warning: 'f1_score' not found in test output:", outputs)
+                        # Compute metrics manually here if needed
 
             if dataset_type == "COMBINED" and run is not None:
                 model.eval()
@@ -517,19 +517,22 @@ def train(config: Config, trainer: L.Trainer, run=None):
                         total_loss += loss.item() * inputs.size(0)
                         total_samples += inputs.size(0)
 
-                accuracy = sum(1 for p, l in zip(all_preds, all_labels) if p == l) / len(all_labels)
-                loss = total_loss / total_samples if total_samples > 0 else 0.0
+                # Compute metrics manually
+                accuracy = accuracy_score(all_labels, all_preds)
+                f1 = f1_score(all_labels, all_preds, average='weighted')
+                avg_loss = total_loss / total_samples if total_samples > 0 else 0.0
 
-                run.log({
-                    "test_accuracy": accuracy,
-                    "test_loss": loss,
-                    "f1_COMBINED_best": outputs[0]["f1_score"]
-                }, commit=False)
+                if run is not None:
+                    run.log({
+                        "test_accuracy": accuracy,
+                        "test_loss": avg_loss,
+                        "f1_COMBINED_best": f1
+                    }, commit=False)
 
-                cm = confusion_matrix(all_labels, all_preds)
-                run.log({"confusion_matrix": wandb.plot.confusion_matrix(probs=None, y_true=all_labels, preds=all_preds)})
+                    cm = confusion_matrix(all_labels, all_preds)
+                    run.log({"confusion_matrix": wandb.plot.confusion_matrix(probs=None, y_true=all_labels, preds=all_preds)})
 
-                print(f"Evaluation for COMBINED - Accuracy: {accuracy}, Loss: {loss}, F1: {outputs[0]['f1_score']}")
+                print(f"Evaluation for COMBINED - Accuracy: {accuracy}, Loss: {avg_loss}, F1: {f1}")
 
 def run_wandb(config: Config, accelerator):
     def wandb_sweep_callback():
