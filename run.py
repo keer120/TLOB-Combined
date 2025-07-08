@@ -9,13 +9,13 @@ import collections
 from torch.utils.data import DataLoader
 from lightning.pytorch.callbacks import TQDMProgressBar
 from lightning.pytorch.callbacks.early_stopping import EarlyStopping
-from config.config import Config
+from config.config import Config, Dataset, FI_2010, LOBSTER, BTC, COMBINED, Model, MLPLOB, TLOB, BiNCTABL, DeepLOB
 from models.engine import Engine
 from preprocessing.fi_2010 import fi_2010_load
 from preprocessing.lobster import lobster_load
 from preprocessing.btc import btc_load
 from preprocessing.combined import combined_load
-from preprocessing.dataset import Dataset, DataModule
+from preprocessing.dataset import DataModule, Dataset as TorchDataset
 import constants as cst
 from constants import DatasetType, SamplingType
 from sklearn.metrics import confusion_matrix
@@ -26,6 +26,18 @@ from sklearn.metrics import f1_score, accuracy_score
 
 # Add safe globals to allow deserialization of checkpoint
 torch.serialization.add_safe_globals([omegaconf.listconfig.ListConfig, omegaconf.base.ContainerMetadata, List, list, collections.defaultdict, dict, int])
+
+# Register subclasses as attributes for checkpoint compatibility (for checkpoint loading)
+setattr(Dataset, "FI_2010", FI_2010)
+setattr(Dataset, "LOBSTER", LOBSTER)
+setattr(Dataset, "BTC", BTC)
+setattr(Dataset, "COMBINED", COMBINED)
+setattr(Model, "MLPLOB", MLPLOB)
+setattr(Model, "TLOB", TLOB)
+setattr(Model, "BINCTABL", BiNCTABL)
+setattr(Model, "DEEPLOB", DeepLOB)
+print("Registered Dataset.FI_2010:", hasattr(Dataset, "FI_2010"))
+print("Registered Model.TLOB:", hasattr(Model, "TLOB"))
 
 def run(config: Config, accelerator):
     seq_size = config.model.hyperparameters_fixed["seq_size"]
@@ -66,17 +78,13 @@ def train(config: Config, trainer: L.Trainer, run=None):
     if dataset_type == "FI_2010":
         path = cst.DATA_DIR + "/FI_2010"
         train_input, train_labels, val_input, val_labels, test_input, test_labels = fi_2010_load(path, seq_size, horizon, config.model.hyperparameters_fixed["all_features"])
-        train_set = Dataset(train_input, train_labels, seq_size)
-        val_set = Dataset(val_input, val_labels, seq_size)
-        test_set = Dataset(test_input, test_labels, seq_size)
-        if config.experiment.is_debug:
-            train_set.length = 1000
-            val_set.length = 1000
-            test_set.length = 10000
+        train_set = TorchDataset(train_input, train_labels, seq_size)
+        val_set = TorchDataset(val_input, val_labels, seq_size)
+        test_set = TorchDataset(test_input, test_labels, seq_size)
         data_module = DataModule(
-            train_set=Dataset(train_input, train_labels, seq_size),
-            val_set=Dataset(val_input, val_labels, seq_size),
-            test_set=Dataset(test_input, test_labels, seq_size),
+            train_set=TorchDataset(train_input, train_labels, seq_size),
+            val_set=TorchDataset(val_input, val_labels, seq_size),
+            test_set=TorchDataset(test_input, test_labels, seq_size),
             batch_size=config.dataset.batch_size,
             test_batch_size=config.dataset.batch_size*4,
             num_workers=4
@@ -87,13 +95,9 @@ def train(config: Config, trainer: L.Trainer, run=None):
         train_input, train_labels = btc_load(cst.DATA_DIR + "/BTC/train.npy", cst.LEN_SMOOTH, horizon, seq_size)
         val_input, val_labels = btc_load(cst.DATA_DIR + "/BTC/val.npy", cst.LEN_SMOOTH, horizon, seq_size)  
         test_input, test_labels = btc_load(cst.DATA_DIR + "/BTC/test.npy", cst.LEN_SMOOTH, horizon, seq_size)
-        train_set = Dataset(train_input, train_labels, seq_size)
-        val_set = Dataset(val_input, val_labels, seq_size)
-        test_set = Dataset(test_input, test_labels, seq_size)
-        if config.experiment.is_debug:
-            train_set.length = 1000
-            val_set.length = 1000
-            test_set.length = 10000
+        train_set = TorchDataset(train_input, train_labels, seq_size)
+        val_set = TorchDataset(val_input, val_labels, seq_size)
+        test_set = TorchDataset(test_input, test_labels, seq_size)
         data_module = DataModule(
             train_set=train_set,
             val_set=val_set,
@@ -134,7 +138,7 @@ def train(config: Config, trainer: L.Trainer, run=None):
         for i in range(len(testing_stocks)):
             path = cst.DATA_DIR + "/" + testing_stocks[i] + "/test.npy"
             test_input, test_labels = lobster_load(path, config.model.hyperparameters_fixed["all_features"], cst.LEN_SMOOTH, horizon, seq_size)
-            test_set = Dataset(test_input, test_labels, seq_size)
+            test_set = TorchDataset(test_input, test_labels, seq_size)
             test_dataloader = DataLoader(
                 dataset=test_set,
                 batch_size=config.dataset.batch_size*4,
@@ -145,14 +149,8 @@ def train(config: Config, trainer: L.Trainer, run=None):
                 persistent_workers=True
             )
             test_loaders.append(test_dataloader)
-        
-        train_set = Dataset(train_input, train_labels, seq_size)
-        val_set = Dataset(val_input, val_labels, seq_size)
-        if config.experiment.is_debug:
-            train_set.length = 1000
-            val_set.length = 1000
-            for test_set in test_loaders:
-                test_set.dataset.length = 10000
+        train_set = TorchDataset(train_input, train_labels, seq_size)
+        val_set = TorchDataset(val_input, val_labels, seq_size)
         data_module = DataModule(
             train_set=train_set,
             val_set=val_set,
@@ -166,14 +164,9 @@ def train(config: Config, trainer: L.Trainer, run=None):
         train_input, train_labels = combined_load(cst.DATA_DIR + "/COMBINED/train.npy", cst.LEN_SMOOTH, horizon, seq_size=seq_size)
         val_input, val_labels = combined_load(cst.DATA_DIR + "/COMBINED/val.npy", cst.LEN_SMOOTH, horizon, seq_size=seq_size)
         test_input, test_labels = combined_load(cst.DATA_DIR + "/COMBINED/test.npy", cst.LEN_SMOOTH, horizon, seq_size=seq_size)
-        train_set = Dataset(train_input, train_labels, seq_size)
-        val_set = Dataset(val_input, val_labels, seq_size)
-        test_set = Dataset(test_input, test_labels, seq_size)
-        test_set.length = 1000  # Limit test set size to reduce memory usage
-        if config.experiment.is_debug:
-            train_set.length = 1000
-            val_set.length = 1000
-            test_set.length = 10000
+        train_set = TorchDataset(train_input, train_labels, seq_size)
+        val_set = TorchDataset(val_input, val_labels, seq_size)
+        test_set = TorchDataset(test_input, test_labels, seq_size)
         data_module = DataModule(
             train_set=train_set,
             val_set=val_set,
@@ -435,7 +428,7 @@ def train(config: Config, trainer: L.Trainer, run=None):
         except: 
             print("no checkpoints has been saved, selecting the last model")
             best_model = model
-        best_model.experiment_type = "EVALUATION"
+        best_model.experiment_type = ["EVALUATION"]
         for i in range(len(test_loaders)):
             test_dataloader = test_loaders[i]
             with torch.no_grad():
@@ -554,15 +547,15 @@ def run_wandb(config: Config, accelerator):
         run_name = None
         if not config.experiment.is_sweep:
             run_name = ""
-            for param in config.model.keys():
-                value = config.model[param]
+            for param in config.model.hyperparameters_fixed.keys():
+                value = config.model.hyperparameters_fixed[param]
                 if param == "hyperparameters_sweep":
                     continue
                 if type(value) == omegaconf.dictconfig.DictConfig:
                     for key in value.keys():
                         run_name += str(key[:2]) + "_" + str(value[key]) + "_"
                 else:
-                    run_name += str(param[:2]) + "_" + str(value.value) + "_"
+                    run_name += str(param[:2]) + "_" + str(value) + "_"
 
             print("Starting WandB run initialization...")
             run = wandb.init(project=cst.PROJECT_NAME, name=run_name, entity="")
