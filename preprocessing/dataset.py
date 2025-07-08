@@ -14,12 +14,13 @@ class Dataset(data.Dataset):
         """Initialization""" 
         self.seq_size = seq_size
         self.length = y.shape[0]
-        self.x = x
-        self.y = y
-        if type(self.x) == np.ndarray:
-            self.x = torch.from_numpy(x).float()
-        if type(self.y) == np.ndarray:
-            self.y = torch.from_numpy(y).long()
+        # Always copy numpy arrays before converting to torch tensors
+        if isinstance(x, np.ndarray):
+            x = x.copy()
+        if isinstance(y, np.ndarray):
+            y = y.copy()
+        self.x = torch.from_numpy(x).float() if isinstance(x, np.ndarray) else x
+        self.y = torch.from_numpy(y).long() if isinstance(y, np.ndarray) else y
         self.data = self.x
 
     def __len__(self):
