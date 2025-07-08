@@ -127,3 +127,13 @@ cs.store(group="dataset", name="lobster", node=LOBSTER)
 cs.store(group="dataset", name="fi_2010", node=FI_2010)
 cs.store(group="dataset", name="btc", node=BTC)
 cs.store(group="dataset", name="combined", node=COMBINED)
+
+# Register subclasses as attributes for checkpoint compatibility
+Dataset.FI_2010 = FI_2010
+Dataset.LOBSTER = LOBSTER
+Dataset.BTC = BTC
+Dataset.COMBINED = COMBINED
+Model.MLPLOB = MLPLOB
+Model.TLOB = TLOB
+Model.BINCTABL = BiNCTABL
+Model.DEEPLOB = DeepLOB
