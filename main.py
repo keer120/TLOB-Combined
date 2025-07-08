@@ -20,15 +20,6 @@ from constants import SamplingType
 import os
 os.environ["CUDA_LAUNCH_BLOCKING"] = "1"
 
-# Register subclasses as attributes for checkpoint compatibility (for checkpoint loading)
-setattr(Dataset, "FI_2010", FI_2010)
-setattr(Dataset, "LOBSTER", LOBSTER)
-setattr(Dataset, "BTC", BTC)
-setattr(Dataset, "COMBINED", COMBINED)
-setattr(Model, "MLPLOB", MLPLOB)
-setattr(Model, "TLOB", TLOB)
-setattr(Model, "BINCTABL", BiNCTABL)
-setattr(Model, "DEEPLOB", DeepLOB)
 
 @hydra.main(config_path="config", config_name="config")
 def hydra_app(config: Config):
