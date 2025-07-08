@@ -67,18 +67,18 @@ class Engine(L.LightningModule):
         x = self.linear_projection(x)  # Project to (batch_size, seq_length, hidden_dim)
         output = self.model(x)         # Pass through TLOB model
         output = self.fc(output[:, -1, :])  # Take last time step and classify
-        return output
+        return output.to(self.device)
 
     def training_step(self, batch, batch_idx):
         x, y = batch
-        y_hat = self(x, batch_idx)
+        y_hat = self(x)
         loss = self.criterion(y_hat, y)
         self.log("train_loss", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
         return loss
 
     def validation_step(self, batch, batch_idx):
         x, y = batch
-        y_hat = self(x, batch_idx)
+        y_hat = self(x)
         loss = self.criterion(y_hat, y)
         self.log("val_loss", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
         return loss
@@ -87,7 +87,7 @@ class Engine(L.LightningModule):
         try:
             x, y = batch
             y = y - y.min()
-            y_hat = self.forward(x, batch_idx)
+            y_hat = self(x)
             print(f"test_step: y min={y.min().item()}, max={y.max().item()}, num_classes={self.fc.out_features}")
             print(f"Unique labels: {torch.unique(y)}")
             loss = self.criterion(y_hat, y)
