@@ -199,31 +199,39 @@ def train(config: Config, trainer: L.Trainer, run=None):
     print("Data loaded, about to initialize/load model...")
 
     if "FINETUNING" in experiment_type or "EVALUATION" in experiment_type:
-        # Always initialize a new model for evaluation, do not load from checkpoint
-        print("Initializing new model for evaluation (checkpoint loading disabled)")
-        model_type = config.model.type
-        if model_type == cst.ModelType.TLOB:
-            model = Engine(
-                seq_size=config.model.hyperparameters_fixed["seq_size"],
-                horizon=config.experiment.horizon,
-                max_epochs=config.experiment.max_epochs,
-                model_type=config.model.type.value,
-                is_wandb=config.experiment.is_wandb,
-                experiment_type=experiment_type,
-                lr=config.model.hyperparameters_fixed["lr"],
-                optimizer=config.experiment.optimizer,
-                dir_ckpt=config.experiment.dir_ckpt,
-                hidden_dim=config.model.hyperparameters_fixed["hidden_dim"],
-                num_layers=config.model.hyperparameters_fixed["num_layers"],
-                num_features=train_input.shape[1],
-                dataset_type=dataset_type,
-                num_heads=config.model.hyperparameters_fixed["num_heads"],
-                is_sin_emb=config.model.hyperparameters_fixed["is_sin_emb"],
-                num_classes=num_classes,
-                len_test_dataloader=len(test_loaders[0])
+        print("Attempting to load model from checkpoint for evaluation/finetuning...")
+        try:
+            model = Engine.load_from_checkpoint(
+                checkpoint_path,
+                map_location=cst.DEVICE,
+                num_classes=num_classes
             )
-        else:
-            raise ValueError(f"Unsupported model type {model_type} for new initialization")
+            print(f"Loaded model from checkpoint: {checkpoint_path}")
+        except Exception as e:
+            print(f"Checkpoint load failed: {e}, initializing new model instead")
+            model_type = config.model.type
+            if model_type == cst.ModelType.TLOB:
+                model = Engine(
+                    seq_size=config.model.hyperparameters_fixed["seq_size"],
+                    horizon=config.experiment.horizon,
+                    max_epochs=config.experiment.max_epochs,
+                    model_type=config.model.type.value,
+                    is_wandb=config.experiment.is_wandb,
+                    experiment_type=experiment_type,
+                    lr=config.model.hyperparameters_fixed["lr"],
+                    optimizer=config.experiment.optimizer,
+                    dir_ckpt=config.experiment.dir_ckpt,
+                    hidden_dim=config.model.hyperparameters_fixed["hidden_dim"],
+                    num_layers=config.model.hyperparameters_fixed["num_layers"],
+                    num_features=train_input.shape[1],
+                    dataset_type=dataset_type,
+                    num_heads=config.model.hyperparameters_fixed["num_heads"],
+                    is_sin_emb=config.model.hyperparameters_fixed["is_sin_emb"],
+                    num_classes=num_classes,
+                    len_test_dataloader=len(test_loaders[0])
+                )
+            else:
+                raise ValueError(f"Unsupported model type {model_type} for new initialization")
     else:
         if model_type == cst.ModelType.MLPLOB:
             model = Engine(
