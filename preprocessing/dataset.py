@@ -28,7 +28,7 @@ class Dataset(data.Dataset):
         return self.length
 
     def __getitem__(self, i):
-        input = self.x[i:i+self.seq_size, :]
+        input = self.x[i]  # shape: [seq_size, num_features]
         label = self.y[i]
         # Convert to torch tensor if not already
         if not torch.is_tensor(input):
