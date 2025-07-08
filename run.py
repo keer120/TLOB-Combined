@@ -28,14 +28,10 @@ from sklearn.metrics import f1_score, accuracy_score
 # torch.serialization.add_safe_globals([omegaconf.listconfig.ListConfig, omegaconf.base.ContainerMetadata, List, list, collections.defaultdict, dict, int])
 
 # Register subclasses as attributes for checkpoint compatibility (for checkpoint loading)
-# setattr(Dataset, "FI_2010", FI_2010)
-# setattr(Dataset, "LOBSTER", LOBSTER)
-# setattr(Dataset, "BTC", BTC)
-# setattr(Dataset, "COMBINED", COMBINED)
-# setattr(Model, "MLPLOB", MLPLOB)
-# setattr(Model, "TLOB", TLOB)
-# setattr(Model, "BINCTABL", BiNCTABL)
-# setattr(Model, "DEEPLOB", DeepLOB)
+setattr(Dataset, "FI_2010", FI_2010)
+setattr(Dataset, "LOBSTER", LOBSTER)
+setattr(Dataset, "BTC", BTC)
+setattr(Dataset, "COMBINED", COMBINED)
 # print("Registered Dataset.FI_2010:", hasattr(Dataset, "FI_2010"))
 # print("Registered Model.TLOB:", hasattr(Model, "TLOB"))
 
