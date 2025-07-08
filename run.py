@@ -25,7 +25,7 @@ import collections
 from sklearn.metrics import f1_score, accuracy_score
 
 # Add safe globals to allow deserialization of checkpoint
-torch.serialization.add_safe_globals([omegaconf.listconfig.ListConfig, omegaconf.base.ContainerMetadata, List, list, collections.defaultdict, dict])
+torch.serialization.add_safe_globals([omegaconf.listconfig.ListConfig, omegaconf.base.ContainerMetadata, List, list, collections.defaultdict, dict, int])
 
 def run(config: Config, accelerator):
     seq_size = config.model.hyperparameters_fixed["seq_size"]
@@ -218,8 +218,8 @@ def train(config: Config, trainer: L.Trainer, run=None):
                 print(f"Checkpoint not found at {checkpoint_path}, initializing new model instead")
             else:
                 try:
-                    torch.serialization.add_safe_globals([omegaconf.listconfig.ListConfig, omegaconf.base.ContainerMetadata, List, list, collections.defaultdict, dict])
-                    checkpoint = torch.load(checkpoint_path, map_location=cst.DEVICE, weights_only=True)
+                    torch.serialization.add_safe_globals([omegaconf.listconfig.ListConfig, omegaconf.base.ContainerMetadata, List, list, collections.defaultdict, dict, int])
+                    checkpoint = torch.load(checkpoint_path, map_location=cst.DEVICE, weights_only=False)
                     print(f"Checkpoint loaded successfully with {len(checkpoint)} keys")
                     lr = checkpoint["hyper_parameters"]["lr"]
                     dir_ckpt = checkpoint["hyper_parameters"]["dir_ckpt"]
