@@ -38,9 +38,8 @@ class Dataset(data.Dataset):
         # Ensure contiguous
         input = input.contiguous()
         label = label.contiguous()
-        # Handle 0-dim label
-        if label.dim() == 0:
-            label = label.unsqueeze(0)
+        # Always squeeze label to scalar (0-dim)
+        label = label.squeeze()
         print(f"__getitem__ idx={i}, input type={type(input)}, shape={getattr(input, 'shape', None)}, label type={type(label)}, shape={getattr(label, 'shape', None)}")
         return input, label
     
