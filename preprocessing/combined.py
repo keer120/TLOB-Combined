@@ -47,13 +47,9 @@ class CombinedDataBuilder:
         std_price = np.std(df[bid_price_cols + ask_price_cols].values)
         mean_size = np.mean(df[bid_quantity_cols + ask_quantity_cols].values)
         std_size = np.std(df[bid_quantity_cols + ask_quantity_cols].values)
-        print("mean_price:", mean_price, "std_price:", std_price)
-        print("mean_size:", mean_size, "std_size:", std_size)
         if std_price == 0:
-            print("WARNING: std_price is zero!")
             std_price = 1.0
         if std_size == 0:
-            print("WARNING: std_size is zero!")
             std_size = 1.0
         
         features[:, :N_LOB_LEVELS] = (features[:, :N_LOB_LEVELS] - mean_price) / std_price  # Bid prices
@@ -100,7 +96,6 @@ def combined_load(path, len_smooth, horizon, seq_size):
     data = np.load(path)
     max_seq_length = data.shape[0] - horizon + 1  # Maximum possible sequence length
     if seq_size > max_seq_length:
-        print(f"Warning: Requested seq_size ({seq_size}) exceeds maximum available length ({max_seq_length}). Truncating seq_size to {max_seq_length}.")
         seq_size = max_seq_length
     labels = np.zeros(len(data) - seq_size - horizon + 1, dtype=np.int64)
     

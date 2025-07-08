@@ -40,7 +40,6 @@ class Dataset(data.Dataset):
         label = label.contiguous()
         # Always squeeze label to scalar (0-dim)
         label = label.squeeze()
-        print(f"__getitem__ idx={i}, input type={type(input)}, shape={getattr(input, 'shape', None)}, label type={type(label)}, shape={getattr(label, 'shape', None)}")
         return input, label
     
 

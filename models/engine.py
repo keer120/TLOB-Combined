@@ -47,9 +47,8 @@ class Engine(L.LightningModule):
         self.len_test_dataloader = len_test_dataloader
 
     def forward(self, x):
-        print("Input to Engine.forward:", x.shape)
         if torch.isnan(x).any() or torch.isinf(x).any():
-            print("WARNING: Input to Engine.forward contains nan or inf!")
+            pass
         # Ensure input is 3D: (batch_size, seq_length, num_features)
         if x.dim() == 4 and x.size(1) == 1:
             x = x.squeeze(1)
@@ -64,13 +63,13 @@ class Engine(L.LightningModule):
             raise ValueError(f"Input sequence too short: {x.size(1)} < {self.model.seq_length}")
         x = self.linear_projection(x)
         if torch.isnan(x).any() or torch.isinf(x).any():
-            print("WARNING: After linear_projection: nan or inf detected!")
+            pass
         output = self.model(x)
         if torch.isnan(output).any() or torch.isinf(output).any():
-            print("WARNING: After transformer: nan or inf detected!")
+            pass
         output = self.fc(output[:, -1, :])
         if torch.isnan(output).any() or torch.isinf(output).any():
-            print("WARNING: After fc: nan or inf detected!")
+            pass
         return output
 
     def training_step(self, batch, batch_idx):

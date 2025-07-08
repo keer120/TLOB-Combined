@@ -324,10 +324,6 @@ def train(config: Config, trainer: L.Trainer, run=None):
                 try:
                     for batch in test_dataloader:
                         inputs, labels = batch
-                        if torch.isnan(inputs).any() or torch.isinf(inputs).any():
-                            print("Batch inputs contain nan/inf!")
-                        if torch.isnan(labels).any() or torch.isinf(labels).any():
-                            print("Batch labels contain nan/inf!")
                         model = model.to(inputs.device)
                         outputs = model(inputs)
                         _, predicted = torch.max(outputs.data, 1)
@@ -349,10 +345,6 @@ def train(config: Config, trainer: L.Trainer, run=None):
             try:
                 for batch in test_dataloader:
                     inputs, labels = batch
-                    if torch.isnan(inputs).any() or torch.isinf(inputs).any():
-                        print("Batch inputs contain nan/inf!")
-                    if torch.isnan(labels).any() or torch.isinf(labels).any():
-                        print("Batch labels contain nan/inf!")
                     model = model.to(inputs.device)
                     outputs = model(inputs)
                     _, predicted = torch.max(outputs.data, 1)
@@ -361,7 +353,7 @@ def train(config: Config, trainer: L.Trainer, run=None):
                     elif run is not None and dataset_type == "FI_2010":
                         run.log({f"f1 FI_2010 ": outputs[0]["f1_score"]}, commit=False)
                     elif run is not None and dataset_type == "COMBINED":
-                        print("Test output:", outputs)
+                        # print("Test output:", outputs)
                         # Compute metrics manually here if needed
             except Exception as e:
                 print("Exception in test DataLoader loop:", e)

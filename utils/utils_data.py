@@ -108,14 +108,12 @@ def labeling(X, len, h, num_classes=3):
     if h < len:
         len = h
     
-    print(f"Starting labeling with X shape: {X.shape}, len: {len}, h: {h}, num_classes: {num_classes}")
     # Process in batches to reduce memory usage
     batch_size = 10000  # Adjustable based on memory constraints
     n_samples = X.shape[0]
     labels = np.zeros(n_samples - h, dtype=np.int64)
     
     for i in range(0, n_samples - h, batch_size):
-        print(f"Processing batch {i} to {min(i + batch_size, n_samples - h)}")
         start_idx = i
         end_idx = min(i + batch_size, n_samples - h)
         
@@ -133,7 +131,6 @@ def labeling(X, len, h, num_classes=3):
         percentage_change = (future_mid_prices - previous_mid_prices) / previous_mid_prices
         alpha = np.abs(percentage_change).mean() / 2
         
-        print(f"Batch {i} alpha: {alpha}")
         if num_classes == 3:
             labels[start_idx:end_idx] = np.where(percentage_change < -alpha, 2, np.where(percentage_change > alpha, 0, 1))
         elif num_classes == 2:
@@ -149,5 +146,4 @@ def labeling(X, len, h, num_classes=3):
     elif num_classes == 2 and len(unique_labels) < 2:
         print(f"Warning: Only {len(unique_labels)} classes found in labels: {unique_labels}. Expected 2 classes (up, stat/down).")
     
-    print(f"Labeling complete for X shape: {X.shape}")
     return labels

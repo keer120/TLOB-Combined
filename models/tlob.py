@@ -14,7 +14,7 @@ class PositionalEncoding(nn.Module):
         self.register_buffer('pe', pe)
 
     def forward(self, x):
-        print(f"Input to TLOB: {x.shape}")
+        # print(f"Input to TLOB: {x.shape}")
         # x shape: (batch_size, seq_length, d_model)
         seq_length = x.size(1)
         return x + self.pe[:, :seq_length, :]
