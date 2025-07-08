@@ -437,27 +437,67 @@ def train(config: Config, trainer: L.Trainer, run=None):
         best_model.experiment_type = "EVALUATION"
         for i in range(len(test_loaders)):
             test_dataloader = test_loaders[i]
-            output = trainer.test(best_model, test_dataloader)
-            if run is not None and dataset_type == "LOBSTER":
-                run.log({f"f1 {testing_stocks[i]} best": output[0]["f1_score"]}, commit=False)
-            elif run is not None and dataset_type == "FI_2010":
-                run.log({f"f1 FI_2010 ": output[0]["f1_score"]}, commit=False)
-            elif run is not None and dataset_type == "COMBINED":
-                run.log({f"f1 COMBINED best": output[0]["f1_score"]}, commit=False)
+            with torch.no_grad():
+                for batch in test_dataloader:
+                    inputs, labels = batch
+                    model = model.to(inputs.device)
+                    outputs = model(inputs)
+                    _, predicted = torch.max(outputs.data, 1)
+                    if run is not None and dataset_type == "LOBSTER":
+                        run.log({f"f1 {testing_stocks[i]} best": outputs[0]["f1_score"]}, commit=False)
+                    elif run is not None and dataset_type == "FI_2010":
+                        run.log({f"f1 FI_2010 ": outputs[0]["f1_score"]}, commit=False)
+                    elif run is not None and dataset_type == "COMBINED":
+                        run.log({f"f1 COMBINED best": outputs[0]["f1_score"]}, commit=False)
+
+                    if dataset_type == "COMBINED" and run is not None:
+                        all_preds = []
+                        all_labels = []
+                        total_loss = 0
+                        total_samples = 0
+                        for batch in test_dataloader:
+                            inputs, labels = batch
+                            model = model.to(inputs.device)
+                            outputs = model(inputs)
+                            _, predicted = torch.max(outputs.data, 1)
+                            all_preds.extend(predicted.cpu().numpy())
+                            all_labels.extend(labels.cpu().numpy())
+                            loss = torch.nn.functional.cross_entropy(outputs, labels)
+                            total_loss += loss.item() * inputs.size(0)
+                            total_samples += inputs.size(0)
+
+                        accuracy = sum(1 for p, l in zip(all_preds, all_labels) if p == l) / len(all_labels)
+                        loss = total_loss / total_samples if total_samples > 0 else 0.0
+
+                        run.log({
+                            "test_accuracy": accuracy,
+                            "test_loss": loss,
+                            "f1_COMBINED_best": outputs[0]["f1_score"]
+                        }, commit=False)
+
+                        cm = confusion_matrix(all_labels, all_preds)
+                        run.log({"confusion_matrix": wandb.plot.confusion_matrix(probs=None, y_true=all_labels, preds=all_preds)})
+
+                        print(f"Evaluation for COMBINED - Accuracy: {accuracy}, Loss: {loss}, F1: {outputs[0]['f1_score']}")
     else:
         for i in range(len(test_loaders)):
             test_dataloader = test_loaders[i]
-            output = trainer.test(model, test_dataloader)
-            if run is not None and dataset_type == "LOBSTER":
-                run.log({f"f1 {testing_stocks[i]} best": output[0]["f1_score"]}, commit=False)
-            elif run is not None and dataset_type == "FI_2010":
-                run.log({f"f1 FI_2010 ": output[0]["f1_score"]}, commit=False)
-            elif run is not None and dataset_type == "COMBINED":
-                print("Test output:", output)
-                if output and "f1_score" in output[0]:
-                    run.log({f"f1 COMBINED best": output[0]["f1_score"]}, commit=False)
-                else:
-                    print("Warning: 'f1_score' not found in test output:", output)
+            with torch.no_grad():
+                for batch in test_dataloader:
+                    inputs, labels = batch
+                    model = model.to(inputs.device)
+                    outputs = model(inputs)
+                    _, predicted = torch.max(outputs.data, 1)
+                    if run is not None and dataset_type == "LOBSTER":
+                        run.log({f"f1 {testing_stocks[i]} best": outputs[0]["f1_score"]}, commit=False)
+                    elif run is not None and dataset_type == "FI_2010":
+                        run.log({f"f1 FI_2010 ": outputs[0]["f1_score"]}, commit=False)
+                    elif run is not None and dataset_type == "COMBINED":
+                        print("Test output:", outputs)
+                        if outputs and "f1_score" in outputs[0]:
+                            run.log({f"f1 COMBINED best": outputs[0]["f1_score"]}, commit=False)
+                        else:
+                            print("Warning: 'f1_score' not found in test output:", outputs)
 
             if dataset_type == "COMBINED" and run is not None:
                 model.eval()
@@ -468,11 +508,8 @@ def train(config: Config, trainer: L.Trainer, run=None):
                 with torch.no_grad():
                     for batch in test_dataloader:
                         inputs, labels = batch
-                        inputs, labels = inputs.to(cst.DEVICE), labels.to(cst.DEVICE)
+                        model = model.to(inputs.device)
                         outputs = model(inputs)
-                        print("inputs device:", inputs.device)
-                        print("labels device:", labels.device)
-                        print("outputs device:", outputs.device)
                         _, predicted = torch.max(outputs.data, 1)
                         all_preds.extend(predicted.cpu().numpy())
                         all_labels.extend(labels.cpu().numpy())
@@ -486,13 +523,13 @@ def train(config: Config, trainer: L.Trainer, run=None):
                 run.log({
                     "test_accuracy": accuracy,
                     "test_loss": loss,
-                    "f1_COMBINED_best": output[0]["f1_score"]
+                    "f1_COMBINED_best": outputs[0]["f1_score"]
                 }, commit=False)
 
                 cm = confusion_matrix(all_labels, all_preds)
                 run.log({"confusion_matrix": wandb.plot.confusion_matrix(probs=None, y_true=all_labels, preds=all_preds)})
 
-                print(f"Evaluation for COMBINED - Accuracy: {accuracy}, Loss: {loss}, F1: {output[0]['f1_score']}")
+                print(f"Evaluation for COMBINED - Accuracy: {accuracy}, Loss: {loss}, F1: {outputs[0]['f1_score']}")
 
 def run_wandb(config: Config, accelerator):
     def wandb_sweep_callback():
