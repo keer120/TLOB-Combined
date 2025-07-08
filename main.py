@@ -9,7 +9,7 @@ import wandb
 import torch
 import constants as cst
 import hydra
-from config.config import Config
+from config.config import Config, Dataset, FI_2010, LOBSTER, BTC, COMBINED, Model, MLPLOB, TLOB, BiNCTABL, DeepLOB
 from run import run_wandb, run, sweep_init
 from preprocessing.lobster import LOBSTERDataBuilder
 from preprocessing.btc import BTCDataBuilder
@@ -19,6 +19,16 @@ from constants import SamplingType
 
 import os
 os.environ["CUDA_LAUNCH_BLOCKING"] = "1"
+
+# Register subclasses as attributes for checkpoint compatibility (for checkpoint loading)
+Dataset.FI_2010 = FI_2010
+Dataset.LOBSTER = LOBSTER
+Dataset.BTC = BTC
+Dataset.COMBINED = COMBINED
+Model.MLPLOB = MLPLOB
+Model.TLOB = TLOB
+Model.BINCTABL = BiNCTABL
+Model.DEEPLOB = DeepLOB
 
 @hydra.main(config_path="config", config_name="config")
 def hydra_app(config: Config):
