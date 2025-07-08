@@ -28,10 +28,20 @@ class Dataset(data.Dataset):
         return self.length
 
     def __getitem__(self, i):
-        input = self.x[i:i+self.seq_size, :].contiguous()
+        input = self.x[i:i+self.seq_size, :]
         label = self.y[i]
-        if isinstance(label, torch.Tensor):
-            label = label.clone().contiguous()
+        # Convert to torch tensor if not already
+        if not torch.is_tensor(input):
+            input = torch.tensor(input)
+        if not torch.is_tensor(label):
+            label = torch.tensor(label)
+        # Ensure contiguous
+        input = input.contiguous()
+        label = label.contiguous()
+        # Handle 0-dim label
+        if label.dim() == 0:
+            label = label.unsqueeze(0)
+        print(f"__getitem__ idx={i}, input type={type(input)}, shape={getattr(input, 'shape', None)}, label type={type(label)}, shape={getattr(label, 'shape', None)}")
         return input, label
     
 

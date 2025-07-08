@@ -107,9 +107,5 @@ class Engine(L.LightningModule):
             return {"loss": torch.tensor(0.0), "f1_score": 0.0}
 
     def configure_optimizers(self):
-        if self.optimizer == "lion":
-            from lion_pytorch import Lion
-            optimizer = Lion(self.parameters(), lr=self.lr)
-        else:
-            optimizer = torch.optim.Adam(self.parameters(), lr=self.lr)
+        optimizer = torch.optim.Adam(self.parameters(), lr=self.lr)
         return optimizer

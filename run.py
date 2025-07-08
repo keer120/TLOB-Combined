@@ -313,74 +313,50 @@ def train(config: Config, trainer: L.Trainer, run=None):
     print("Dataloaders created.")
 
     if "TRAINING" in experiment_type or "FINETUNING" in experiment_type:
-        trainer.fit(model, train_dataloader, val_dataloader)
-        best_model_path = model.last_path_ckpt
-        print("Best model path: ", best_model_path) 
         try:
-            best_model = Engine.load_from_checkpoint(best_model_path, map_location=cst.DEVICE, num_classes=num_classes)
-        except: 
-            print("no checkpoints has been saved, selecting the last model")
-            best_model = model
-        best_model.experiment_type = ["EVALUATION"]
-        for i in range(len(test_loaders)):
-            test_dataloader = test_loaders[i]
-            with torch.no_grad():
-                for batch in test_dataloader:
-                    inputs, labels = batch
-                    model = model.to(inputs.device)
-                    outputs = model(inputs)
-                    _, predicted = torch.max(outputs.data, 1)
-                    if run is not None and dataset_type == "LOBSTER":
-                        run.log({f"f1 {testing_stocks[i]} best": outputs[0]["f1_score"]}, commit=False)
-                    elif run is not None and dataset_type == "FI_2010":
-                        run.log({f"f1 FI_2010 ": outputs[0]["f1_score"]}, commit=False)
-                    elif run is not None and dataset_type == "COMBINED":
-                        run.log({f"f1 COMBINED best": outputs[0]["f1_score"]}, commit=False)
-
-                    if dataset_type == "COMBINED" and run is not None:
-                        all_preds = []
-                        all_labels = []
-                        total_loss = 0
-                        total_samples = 0
-                        for batch in test_dataloader:
-                            inputs, labels = batch
-                            model = model.to(inputs.device)
-                            outputs = model(inputs)
-                            _, predicted = torch.max(outputs.data, 1)
-                            all_preds.extend(predicted.cpu().numpy())
-                            all_labels.extend(labels.cpu().numpy())
-                            loss = torch.nn.functional.cross_entropy(outputs, labels)
-                            total_loss += loss.item() * inputs.size(0)
-                            total_samples += inputs.size(0)
-
-                        # Compute metrics manually
-                        accuracy = accuracy_score(all_labels, all_preds)
-                        f1 = f1_score(all_labels, all_preds, average='weighted')
-                        avg_loss = total_loss / total_samples if total_samples > 0 else 0.0
-
-                        # Log a table of predictions and true labels to WandB (first 100 samples)
-                        if run is not None:
-                            table = wandb.Table(columns=["predicted", "true"])
-                            for pred, true in zip(all_preds[:100], all_labels[:100]):
-                                table.add_data(pred, true)
-                            run.log({"predictions_table": table})
-
-                            run.log({
-                                "test_accuracy": accuracy,
-                                "test_loss": avg_loss,
-                                "f1_COMBINED_best": f1
-                            }, commit=False)
-
-                            cm = confusion_matrix(all_labels, all_preds)
-                            run.log({"confusion_matrix": wandb.plot.confusion_matrix(probs=None, y_true=all_labels, preds=all_preds)})
-
-                        print(f"Evaluation for COMBINED - Accuracy: {accuracy}, Loss: {avg_loss}, F1: {f1}")
+            trainer.fit(model, train_dataloader, val_dataloader)
+            best_model_path = model.last_path_ckpt
+            print("Best model path: ", best_model_path) 
+            try:
+                best_model = Engine.load_from_checkpoint(best_model_path, map_location=cst.DEVICE, num_classes=num_classes)
+            except: 
+                print("no checkpoints has been saved, selecting the last model")
+                best_model = model
+            best_model.experiment_type = ["EVALUATION"]
+            for i in range(len(test_loaders)):
+                test_dataloader = test_loaders[i]
+                try:
+                    for batch in test_dataloader:
+                        inputs, labels = batch
+                        if torch.isnan(inputs).any() or torch.isinf(inputs).any():
+                            print("Batch inputs contain nan/inf!")
+                        if torch.isnan(labels).any() or torch.isinf(labels).any():
+                            print("Batch labels contain nan/inf!")
+                        model = model.to(inputs.device)
+                        outputs = model(inputs)
+                        _, predicted = torch.max(outputs.data, 1)
+                        if run is not None and dataset_type == "LOBSTER":
+                            run.log({f"f1 {testing_stocks[i]} best": outputs[0]["f1_score"]}, commit=False)
+                        elif run is not None and dataset_type == "FI_2010":
+                            run.log({f"f1 FI_2010 ": outputs[0]["f1_score"]}, commit=False)
+                        elif run is not None and dataset_type == "COMBINED":
+                            run.log({f"f1 COMBINED best": outputs[0]["f1_score"]}, commit=False)
+                except Exception as e:
+                    print("Exception in test DataLoader loop:", e)
+                    import traceback; traceback.print_exc()
+        except Exception as e:
+            print("Exception in training/validation loop:", e)
+            import traceback; traceback.print_exc()
     else:
         for i in range(len(test_loaders)):
             test_dataloader = test_loaders[i]
-            with torch.no_grad():
+            try:
                 for batch in test_dataloader:
                     inputs, labels = batch
+                    if torch.isnan(inputs).any() or torch.isinf(inputs).any():
+                        print("Batch inputs contain nan/inf!")
+                    if torch.isnan(labels).any() or torch.isinf(labels).any():
+                        print("Batch labels contain nan/inf!")
                     model = model.to(inputs.device)
                     outputs = model(inputs)
                     _, predicted = torch.max(outputs.data, 1)
@@ -391,6 +367,9 @@ def train(config: Config, trainer: L.Trainer, run=None):
                     elif run is not None and dataset_type == "COMBINED":
                         print("Test output:", outputs)
                         # Compute metrics manually here if needed
+            except Exception as e:
+                print("Exception in test DataLoader loop:", e)
+                import traceback; traceback.print_exc()
 
             if dataset_type == "COMBINED" and run is not None:
                 model.eval()
