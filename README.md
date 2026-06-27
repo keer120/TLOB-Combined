@@ -1,4 +1,26 @@
 # TLOB: A Novel Transformer Model with Dual Attention for Stock Price Trend Prediction with Limit Order Book Data
+
+> **This repository extends the original TLOB paper with experiments on Indian market (NSE) LOB data, conducted as part of IIT Bombay SRFP 2025 under Dr. Sandip Mondal.**
+
+## My Contributions
+
+- Applied TLOB, MLPLOB, DeepLOB, and BiNCTABL to **NSE State Bank of India** LOB data (weeks 19–24, 2025)
+- Built a weekwise data pipeline combining NSE CSV files for large-scale processing on Google Colab
+- Integrated Bilinear Normalization (BIN), SMOTE oversampling, and z-score outlier filtering
+- Modified checkpoint loading scripts and added weighted loss functions to handle class imbalance
+- Conducted ablation studies: removing dual-attention dropped TLOB accuracy from 59% → 52%
+
+**Results on NSE SBI (k=1000)**
+
+| Model | Accuracy | F1 Score |
+|-------|----------|----------|
+| TLOB | 59% | 58.5% |
+| MLPLOB | 55% | 54.0% |
+| DeepLOB | 50% | 45.0% |
+| BiNCTABL | 50% | 46.0% |
+
+---
+
 This is a repository for the paper TLOB: A Novel Transformer Model with Dual Attention for Stock Price Trend Prediction with Limit Order Book Data.
 
 ## Abstract
@@ -15,7 +37,7 @@ To set up the environment for this project, follow these steps:
 
 1. Clone the repository:
 ```sh
-git clone https://github.com/LeonardoBerti00/TLOB.git
+git clone https://github.com/keer120/TLOB-Combined.git
 ```
 2. Navigate to the project directory
 3. Create a virtual environment:
